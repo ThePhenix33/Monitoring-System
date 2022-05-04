@@ -79,7 +79,7 @@ void ISnetwork::networkSetup() {
 
 
 struct Command ISnetwork::queryAK() {
- struct Command requestedCommand;
+  struct Command requestedCommand;
   userQuery = server.available();
   if (userQuery) {
 
@@ -88,9 +88,8 @@ struct Command ISnetwork::queryAK() {
     bool currentLineIsBlank = true;
     char qParam[256] = " ";
     char qValue[256] = " ";
-    String allParams[5], allValues[5];
-    int sent = 0;
-    int param=0;
+    int param = 0;
+
     while (userQuery.connected()) {
       // Serial.println("Command connection ON");
       if (userQuery.available()) {
@@ -113,7 +112,7 @@ struct Command ISnetwork::queryAK() {
             if (c != '=')qParam[i] = c;
             i++;
           }
-          Serial.println("Parameter identified!");
+          Serial.println(" *Parameter identified!");
 
           //At this point the Parameter has been acknowledged, now the Value is read
 
@@ -124,8 +123,7 @@ struct Command ISnetwork::queryAK() {
           while ( c != ' ') {
             c = userQuery.read();
             if (c == '?') {
-              param++;
-              Serial.println("Nouveau Paramètre");
+              Serial.println(" *Another parameter next");
               i = 0;
               break;
             }
@@ -133,35 +131,55 @@ struct Command ISnetwork::queryAK() {
             i++;
 
           }
-          Serial.println("Value identified!");
+          Serial.println(" *Value identified!");
           //At this point the Value has been acknowledged
 
-          allParams[sent]=(String)qParam;
-           allValues[sent]=(String)qValue;
-          Serial.print(" | Parameter: ");
-          Serial.println(allParams[sent]);
-          Serial.print(" | Value: ");
-          Serial.println(allValues[sent]);
+          Serial.print("  | Parameter: ");
+          Serial.println((String)qParam);
+          Serial.print("  | Value: ");
+          Serial.println((String)qValue);
 
+          //For each parameter, the value is set to the associated variable of the struct Command type return
 
-          if(((String)qParam).equals("M"))requestedCommand.mode=((String)qValue).toInt();
-          if(((String)qParam).equals("C"))requestedCommand.id=((String)qValue).toInt();
-          if(((String)qParam).equals("P"))requestedCommand.readingPeriod=((String)qValue).toInt();
-          if(((String)qParam).equals("m"))requestedCommand.min=((String)qValue).toInt();
-          if(((String)qParam).equals("MM"))requestedCommand.max=((String)qValue).toInt();
-          if(((String)qParam).equals("N"))requestedCommand.logicalLevel=((String)qValue).toInt();
-          if(((String)qParam).equals("B"))requestedCommand.dataBank=((String)qValue).toInt();
-          if(((String)qParam).equals("I"))requestedCommand.interrupt=((String)qValue).toInt();
-         
-          
-          sent++;
-   for (int cStr = 0; cStr < 256; cStr++) {
-            qParam[cStr] = ' ';
-            qValue[cStr] = ' ';
+          if (((String)qParam).equals("M")) {
+            requestedCommand.mode = ((String)qValue).toInt();
+            Serial.println("   \\MODE value set");
           }
-        }
+          if (((String)qParam).equals("C")) {
+            requestedCommand.id = ((String)qValue).toInt();
+            Serial.println("   \\ID value set");
+          }
+          if (((String)qParam).equals("P")) {
+            requestedCommand.readingPeriod = ((String)qValue).toInt();
+            Serial.println("   \\PERIOD value set");
+          }
+          if (((String)qParam).equals("m")) {
+            requestedCommand.min = ((String)qValue).toInt();
+            Serial.println("   \\MIN value set");
+          }
+          if (((String)qParam).equals("MM")) {
+            requestedCommand.max = ((String)qValue).toInt();
+            Serial.println("   \\MAX value set");
+          }
+          if (((String)qParam).equals("N")) {
+            requestedCommand.logicalLevel = ((String)qValue).toInt();
+            Serial.println("   \\LOGICAL LEVEL value set");
+          }
+          if (((String)qParam).equals("B")) {
+            requestedCommand.dataBank = ((String)qValue).toInt();
+            Serial.println("   \\DATA BANK value set");
+          }
+          if (((String)qParam).equals("I")) {
+            requestedCommand.interrupt = ((String)qValue).toInt();
+            Serial.println("   \\INTERRUPT value set");
+          }
 
-        //c = userQuery.read();
+
+          //Parameter and value buffers resetting
+          (String)qParam = " ";
+          (String)qValue = " ";
+
+        }
 
         /*The code waits for the headers to be read, and then process
            the command.
@@ -171,9 +189,9 @@ struct Command ISnetwork::queryAK() {
           Serial.println("Command acknowledging! \n");
 
           return requestedCommand;
-        
 
-       
+
+
           break;
         }
         if (c == '\n') {
@@ -189,8 +207,7 @@ struct Command ISnetwork::queryAK() {
 
   }
 
-
-return requestedCommand;
+  return requestedCommand;
 }
 void ISnetwork::endQuery() {
   DynamicJsonDocument doc(1024);
