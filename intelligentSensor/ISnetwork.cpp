@@ -78,8 +78,8 @@ void ISnetwork::networkSetup() {
 
 
 
-Command* ISnetwork::queryAK() {
- Command* requestedCommand = new Command();
+struct Command ISnetwork::queryAK() {
+ struct Command requestedCommand;
   userQuery = server.available();
   if (userQuery) {
 
@@ -144,14 +144,14 @@ Command* ISnetwork::queryAK() {
           Serial.println(allValues[sent]);
 
 
-          if((String)qParam.equals("M")requestedCommand.mode=(String)qValue.toInt();
-          if((String)qParam.equals("C")requestedCommand.id=(String)qValue.toInt();
-          if((String)qParam.equals("P")requestedCommand.readingPeriod=(String)qValue.toInt();
-          if((String)qParam.equals("m")requestedCommand.min=(String)qValue.toInt();
-          if((String)qParam.equals("MM")requestedCommand.max=(String)qValue.toInt();
-          if((String)qParam.equals("N")requestedCommand.logicalLevel=(String)qValue.toInt();
-          if((String)qParam.equals("B")requestedCommand.dataBank=(String)qValue.toInt();
-          if((String)qParam.equals("I")requestedCommand.interrupt=(String)qValue.toInt();
+          if(((String)qParam).equals("M"))requestedCommand.mode=((String)qValue).toInt();
+          if(((String)qParam).equals("C"))requestedCommand.id=((String)qValue).toInt();
+          if(((String)qParam).equals("P"))requestedCommand.readingPeriod=((String)qValue).toInt();
+          if(((String)qParam).equals("m"))requestedCommand.min=((String)qValue).toInt();
+          if(((String)qParam).equals("MM"))requestedCommand.max=((String)qValue).toInt();
+          if(((String)qParam).equals("N"))requestedCommand.logicalLevel=((String)qValue).toInt();
+          if(((String)qParam).equals("B"))requestedCommand.dataBank=((String)qValue).toInt();
+          if(((String)qParam).equals("I"))requestedCommand.interrupt=((String)qValue).toInt();
          
           
           sent++;
@@ -169,12 +169,6 @@ Command* ISnetwork::queryAK() {
 
         if (c == '\n' && currentLineIsBlank) {
           Serial.println("Command acknowledging! \n");
-          for(int j=0;j<=param;j++){
-            *sensor = allParams[j];
-              *mode = allValues[j];
-            sensor++;
-            mode++;
-          }
 
           return requestedCommand;
         
@@ -196,7 +190,7 @@ Command* ISnetwork::queryAK() {
   }
 
 
-
+return requestedCommand;
 }
 void ISnetwork::endQuery() {
   DynamicJsonDocument doc(1024);

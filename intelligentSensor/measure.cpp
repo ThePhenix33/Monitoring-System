@@ -72,11 +72,13 @@ void measure::sensorSetup() {
 }
 
 
-void measure::measurement(String sens, String mode, EthernetClient query) {
+void measure::measurement(struct Command command, EthernetClient query) {
 
 
 
-  if (sens.equals("temp")) {
+  switch(command.id){
+     case 1: 
+  {
 
     Serial.println("Temperature measurement..");
 
@@ -108,10 +110,10 @@ void measure::measurement(String sens, String mode, EthernetClient query) {
 
     query.stop();
     Serial.println("End of query after JSON sending \n\n");
+  break;
   }
-
-  if (sens.equals("hum")) {
-
+ case 2:
+{
     Serial.println("Humidity measurement..");
 
     DynamicJsonDocument doc(1024);
@@ -142,9 +144,10 @@ void measure::measurement(String sens, String mode, EthernetClient query) {
 
     query.stop();
     Serial.println("End of query after JSON sending \n\n");
-  }
-
-  if (sens.equals("adc")) {
+  break;
+}
+  case 5:
+  {
     Serial.println("ADC measurement..");
 
     DynamicJsonDocument doc(1024);
@@ -158,5 +161,7 @@ void measure::measurement(String sens, String mode, EthernetClient query) {
 
     query.stop();
     Serial.println("End of query after JSON sending \n\n");
+  break;
+  }
   }
 }

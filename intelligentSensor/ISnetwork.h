@@ -12,7 +12,7 @@ public:
 EthernetClient userQuery;
 int networkCheck();
 void networkSetup();
-Command queryAK(String*,String*);
+struct Command queryAK();
 void endQuery();
 };
 #endif
