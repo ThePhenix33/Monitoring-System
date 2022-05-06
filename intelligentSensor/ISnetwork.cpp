@@ -62,8 +62,9 @@ void ISnetwork::networkSetup() {
   delay(1000);
 
   //At this point the IS is connected to the network
-  IPAddress gateway(192, 168, 10, 1);
-  Ethernet.setGatewayIP(gateway);
+  
+ // IPAddress gateway(192, 168, 10, 1); //Only for local switch network
+ // Ethernet.setGatewayIP(gateway);
   Serial.print("My IP address: ");
   Serial.println(Ethernet.localIP());
   Serial.print("My gateway address: ");
@@ -106,7 +107,7 @@ struct Command ISnetwork::queryAK() {
         */
 
 
-        while (c == '?') {
+        while (c == '?'|| c== '&') {
           while (c != '=') {
             c = userQuery.read();
             if (c != '=')qParam[i] = c;
@@ -120,9 +121,9 @@ struct Command ISnetwork::queryAK() {
 
           i = 0;
 
-          while ( c != ' ') {
+          while ( c != ' ' && c!='&') {
             c = userQuery.read();
-            if (c == '?') {
+            if (c == '&') {
               Serial.println(" *Another parameter next");
               i = 0;
               break;
@@ -176,8 +177,14 @@ struct Command ISnetwork::queryAK() {
 
 
           //Parameter and value buffers resetting
-          (String)qParam = " ";
-          (String)qValue = " ";
+          for(int i=0;i<((String)qParam).length();i++){
+          qParam[i]=' ';
+         
+          }
+           for(int i=0;i<((String)qValue).length();i++){
+          qValue[i]=' ';
+         
+          }
 
         }
 

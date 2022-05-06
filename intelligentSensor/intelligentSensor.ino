@@ -10,53 +10,41 @@
    Works on Wiznet W5100S-EVB-Pico
 */
 
-#ifdef ARDUINO_SAMD_VARIANT_COMPLIANCE
-#define SDAPIN  4
-#define SCLPIN  5
-#define RSTPIN  7
-#define SERIAL SerialUSB
-#else
-#define SDAPIN  4
-#define SCLPIN  5
-#define RSTPIN  2
-#define SERIAL Serial
-#endif
-
 
 #include "Command.h"
 #include "ISnetwork.h"
 #include "behavior.h"
+#include "RPi_Pico_ISR_Timer.h"
+
 ISnetwork network;
 behavior behavior;
-String sensor[5], mode[5];
 
+
+
+
+//RPI_PICO_Timer ITimer0(0);
 void setup() {
   pinMode(15, OUTPUT);
   network.networkSetup();
   behavior.sensorSetup();
+  
+  /* if (ITimer0.attachInterruptInterval(1000 * 1000, behavior.measure)) {
+      Serial.println("Timer Start OK");
+
+    } else {
+      Serial.println("Failed to start timer");
+    }*/
 }
 
 void loop() {
 
 
-  while ( network.networkCheck() < 0) {
-  }
-  delay(100);
-
-
+  while ( network.networkCheck() < 0) { }
+//Serial.println("loop");
   behavior.behaviorHandler(network.queryAK(), network.userQuery);
 
-  if (sensor[0].equals("pir") && mode[0].equals("1")) {
-    attachInterrupt(digitalPinToInterrupt(12), pirHandler, RISING);
-  }
+    
   if (network.userQuery.connected()) {
     network.endQuery();
   }
-  sensor[0] = " ";
-  mode[0] = " ";
-
-}
-
-void pirHandler() {
-  Serial.println("PIR CAPTE");
 }
