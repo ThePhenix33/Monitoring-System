@@ -8,7 +8,7 @@
 class ISnetwork {
 private:
 
-public:
+public: 
 EthernetClient userQuery;
 int networkCheck();
 void networkSetup();

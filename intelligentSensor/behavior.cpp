@@ -9,11 +9,9 @@ SHT31 sht;
 int idx = 0;
 int nbDevices = 0;
 
-float databank[4][20];
 
+activeBehaviorsList activeBehaviors;
 
-//EthernetClient activeQuery;
-//struct Command activeBehavior,lastBehavior, activeCommand;
 
 void behavior::sensorScan() {
 
@@ -77,117 +75,39 @@ void behavior::sensorSetup() {
 
     }
   }
-
 }
 
 
 
-bool behavior::timer0Handler(struct repeating_timer *t){
-  tim0=true;
+
+bool behavior::timer0Handler(struct repeating_timer *t) {
+  tim0 = true;
   behavior::measure();
   return true;
 }
-bool behavior::timer1Handler(struct repeating_timer *t){
-  tim1=true;
+
+bool behavior::timer1Handler(struct repeating_timer *t) {
+  tim1 = true;
   behavior::measure();
   return true;
 }
-bool behavior::timer2Handler(struct repeating_timer *t){
-  tim2=true;
+
+bool behavior::timer2Handler(struct repeating_timer *t) {
+  tim2 = true;
   behavior::measure();
   return true;
 }
-bool behavior::timer3Handler(struct repeating_timer *t){
-  tim3=true;
+
+bool behavior::timer3Handler(struct repeating_timer *t) {
+  tim3 = true;
   behavior::measure();
   return true;
 }
-void behavior::measure() {
-
-  Serial.println("Measuring requested");
-
-  behavior usedBehavior;
-
-  Serial.println("TIMER| Reading ID");
-  Serial.println(activeBehaviors[0].id);
-  Serial.println("TIMER| Activation");
-  float mes;
-
-if(tim0){
-  selTim=0;
-  tim0=false;
-}else if(tim1){
-  selTim=1;
-  tim1=false;
-}else if(tim2){
-  selTim=2;
-  tim2=false;
-}else if(tim3){
-  selTim=3;
-  tim3=false;
-}
 
 
 
-  switch (activeBehaviors[selTim].id) {
-    case 1:
-      {
-
-        Serial.println(" >Temperature measurement..");
-
-        if (sht.dataReady())
-        {
-          bool success  = sht.readData();
-          sht.requestData();
-
-          if (success == false)
-          {
-            Serial.println(" >Failed read");
-          }
-          else
-          {
-            mes = sht.getRawTemperature() * (175.0 / 65535) - 45;
-            usedBehavior.databank[0][usedBehavior.idx] = mes;
-          }
-        }
-        usedBehavior.idx++;
-        break;
-      }
-    case 2:
-      {
-        Serial.println(" >Humidity measurement..");
 
 
-        if (sht.dataReady())
-        {
-          bool success  = sht.readData();
-          sht.requestData();
-
-          if (success == false)
-          {
-            Serial.println(" >Failed read");
-          }
-          else
-          {
-            mes = sht.getRawHumidity() * (100.0 / 65535);
-            usedBehavior.databank[0][usedBehavior.idx] = mes;
-          }
-        }
-        usedBehavior.idx++;
-        break;
-      }
-    case 5:
-      {
-        Serial.println(" >ADC measurement..");
-        mes = analogRead(27);
-        usedBehavior.databank[0][usedBehavior.idx] = mes;
-        usedBehavior.idx++;
-
-        break;
-      }
-  }
- 
-}
 
 
 
@@ -206,14 +126,19 @@ void behavior::ISinfo() {
   for (int i = 0; i < nbDevices; i++) {
     doc["sensors"][i] = connectedSensors[i];
   }
-for (int ab=0; ab<activeBehaviorsCount;ab++){
-  doc["activeBehavior"][ab]["mode"] = activeBehaviors[ab].mode;
-  doc["activeBehavior"][ab]["sensor"] = activeBehaviors[ab].id;
-  doc["activeBehavior"][ab]["interrupt"] = activeBehaviors[ab].interrupt;
-}
+
+  for (int ab = 0; ab <   activeBehaviors.size(); ab++) {
+    doc["activeBehavior"][ab]["mode"] = activeBehaviors[ab].mode;
+    doc["activeBehavior"][ab]["sensor"] = activeBehaviors[ab].id;
+    doc["activeBehavior"][ab]["period"] = activeBehaviors[ab].readingPeriod;
+    doc["activeBehavior"][ab]["databank"] = activeBehaviors[ab].databank;
+    doc["activeBehavior"][ab]["timer"] = activeBehaviors[ab].timer;
+  }
+
+
   doc["lastBehavior"]["mode"] = lastBehavior.mode;
   doc["lastBehavior"]["sensor"] = lastBehavior.id;
-  doc["lastBehavior"]["interrupt"] = lastBehavior.interrupt;
+  doc["lastBehavior"]["period"] = lastBehavior.readingPeriod;
 
   serializeJson(doc, activeQuery);
 
@@ -254,55 +179,81 @@ void behavior::regularMeasure() {
       doc["error"] = "sensor id is not specified";
       serializeJson(doc, activeQuery);
 
-    } else {
+    } else  if (dataA.size() > 0 && dataB.size() > 0 && dataC.size() > 0 && dataD.size() > 0) {
+      DynamicJsonDocument doc(1024);
 
+      doc["error"] = "no databank available";
+      serializeJson(doc, activeQuery);
+    }
+    else {
 
+      if (!dataA.size()) {
+        Serial.println(dataA.size());
+        activeCommand.databank = 1;
+      } else if (!dataB.size()) {
+        activeCommand.databank = 2;
+      } else if (!dataC.size()) {
+        activeCommand.databank = 3;
+      } else if (!dataD.size()) {
+        activeCommand.databank = 4;
+      }
 
 
       if (!timer0Used) {
         if (ITimer0.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer0Handler)) {
+
           Serial.println("Timer Start OK");
+          ITimer0.restartTimer();
           timer0Used = true;
+          activeCommand.timer = 0;
           lastBehavior = activeCommand;
-          activeBehaviors[0] = activeCommand;
-          activeBehaviorsCount++;
+
+          activeBehaviors.push_back(activeCommand);
+
         } else {
           Serial.println("Failed to start timer");
         }
-      } else if (!timer1Used) {
+      }
+      else if (!timer1Used) {
         if (ITimer1.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer1Handler)) {
           Serial.println("Timer Start OK");
+          ITimer1.restartTimer();
           timer1Used = true;
+          activeCommand.timer = 1;
           lastBehavior = activeCommand;
-          activeBehaviors[1] = activeCommand;
-           activeBehaviorsCount++;
+          activeBehaviors.push_back(activeCommand);
+
         } else {
           Serial.println("Failed to start timer");
         }
       } else if (!timer2Used) {
         if (ITimer2.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer2Handler)) {
           Serial.println("Timer Start OK");
+          ITimer2.restartTimer();
           timer2Used = true;
+          activeCommand.timer = 2;
           lastBehavior = activeCommand;
-          activeBehaviors[2] = activeCommand;
-           activeBehaviorsCount++;
+          activeBehaviors.push_back(activeCommand);
         } else {
           Serial.println("Failed to start timer");
         }
       } else if (!timer3Used) {
         if (ITimer3.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer3Handler)) {
           Serial.println("Timer Start OK");
+          ITimer3.restartTimer();
           timer3Used = true;
+          activeCommand.timer = 3;
           lastBehavior = activeCommand;
-          activeBehaviors[3] = activeCommand;
-           activeBehaviorsCount++;
+          activeBehaviors.push_back(activeCommand);
         } else {
           Serial.println("Failed to start timer");
         }
       }
 
-
     }
+
+
+
   } else {
     DynamicJsonDocument doc(1024);
 
@@ -314,6 +265,120 @@ void behavior::regularMeasure() {
 
 }
 
+
+void behavior::measure() {
+
+  Serial.println("Measuring requested");
+
+  behavior usedBehavior;
+
+  Serial.println("TIMER| Reading ID");
+  Serial.println(activeBehaviors[0].id);
+  Serial.println("TIMER| Activation");
+  float data;
+  float time;
+  struct Measure mes;
+  databank* db;
+  int timer = -2;
+  if (tim0) {
+    selTim = 0;
+    tim0 = false;
+  } else if (tim1) {
+    selTim = 1;
+    tim1 = false;
+  } else if (tim2) {
+    selTim = 2;
+    tim2 = false;
+  } else if (tim3) {
+    selTim = 3;
+    tim3 = false;
+  }
+
+  for (int at = 0; at < activeBehaviors.size(); at++) {
+    if (activeBehaviors[at].timer == selTim) {
+      timer = at;
+      break;
+    }
+  }
+  switch (activeBehaviors[timer].databank) {
+    case 1:
+      db = &dataA;
+      break;
+    case 2:
+      db = &dataB;
+      break;
+    case 3:
+      db = &dataC;
+      break;
+    case 4:
+      db = &dataD;
+      break;
+  }
+
+  switch (activeBehaviors[timer].id) {
+    case 1:
+      {
+
+        Serial.println(" >Temperature measurement..");
+
+        if (sht.dataReady())
+        {
+          bool success  = sht.readData();
+          sht.requestData();
+
+          if (success == false)
+          {
+            Serial.println(" >Failed read");
+          }
+          else
+          {
+            data = sht.getRawTemperature() * (175.0 / 65535) - 45;
+            mes.data = data;
+            mes.time = millis();
+            db->push_back(mes);
+            Serial.println(db->size());
+          }
+        }
+        break;
+      }
+    case 2:
+      {
+        Serial.println(" >Humidity measurement..");
+
+
+        if (sht.dataReady())
+        {
+          bool success  = sht.readData();
+          sht.requestData();
+
+          if (success == false)
+          {
+            Serial.println(" >Failed read");
+          }
+          else
+          {
+            data = sht.getRawHumidity() * (100.0 / 65535);
+            mes.data = data;
+            mes.time = millis();
+            db->push_back(mes);
+          }
+        }
+
+        break;
+      }
+    case 5:
+      {
+        Serial.println(" >ADC measurement..");
+        data = analogRead(27);
+        mes.data = data;
+        mes.time = millis();
+        db->push_back(mes);
+
+        break;
+      }
+  }
+
+}
 
 /*MODE 9 : UNITARY MEASURE
 
@@ -415,27 +480,221 @@ void behavior::unitaryMeasure() {
 }
 
 
+/*MODE 10 : DATABANK READ
+ * 
+ *
+ *Provide data from the selected databank
+ *
+ */
+void behavior::databankRead() {
+
+  switch (activeCommand.databank) {
+    case 1:
+      for (int dataRead = 0; dataRead < dataA.size(); dataRead++) {
+        Serial.println(dataA[dataRead].data);
+      }
+      break;
+    case 2:
+
+      for (int dataRead = 0; dataRead < dataB.size(); dataRead++) {
+        Serial.println(dataB[dataRead].data);
+      }
+      break;
+    case 3:
+
+      for (int dataRead = 0; dataRead < dataC.size(); dataRead++) {
+        Serial.println(dataC[dataRead].data);
+      }
+      break;
+    case 4:
+
+      for (int dataRead = 0; dataRead < dataD.size(); dataRead++) {
+        Serial.println(dataD[dataRead].data);
+      }
+      break;
+  }
+
+
+  activeQuery.stop();
+}
+
+/*MODE 11 : MEASURE RESET
+
+   Stops selected periodic measure
+
+*/
+
+void behavior::measureReset() {
+
+
+
+  switch (activeCommand.interrupt) {
+    case 0:
+      {
+        ITimer0.stopTimer();
+        ITimer1.stopTimer();
+        ITimer2.stopTimer();
+        ITimer3.stopTimer();
+
+        dataA.clear();
+        dataB.clear();
+        dataC.clear();
+        dataD.clear();
+
+        activeBehaviors.clear();
+        break;
+      }
+    case 1:
+      {
+        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+          if (activeBehaviors[cmd].timer == 1) {
+            ITimer0.stopTimer();
+            timer0Used = false;
+            activeBehaviors.remove(cmd);
+
+            switch (activeBehaviors[cmd].databank) {
+              case 1:
+                dataA.clear();
+                break;
+              case 2:
+                dataB.clear();
+                break;
+              case 3:
+                dataC.clear();
+                break;
+              case 4:
+                dataD.clear();
+                break;
+            }
+          }
+
+        }
+        break;
+      }
+    case 2:
+      {
+        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+          if (activeBehaviors[cmd].timer == 1) {
+            ITimer1.stopTimer();
+
+            timer1Used = false;
+            activeBehaviors.remove(cmd);
+            switch (activeBehaviors[cmd].databank) {
+              case 1:
+                dataA.clear();
+                break;
+              case 2:
+                dataB.clear();
+                break;
+              case 3:
+                dataC.clear();
+                break;
+              case 4:
+                dataD.clear();
+                break;
+            }
+          }
+
+        }
+        break;
+      }
+    case 3:
+      {
+        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+          if (activeBehaviors[cmd].timer == 2) {
+            ITimer2.stopTimer();
+            timer2Used = false;
+            activeBehaviors.remove(cmd);
+
+            switch (activeBehaviors[cmd].databank) {
+              case 1:
+                dataA.clear();
+                break;
+              case 2:
+                dataB.clear();
+                break;
+              case 3:
+                dataC.clear();
+                break;
+              case 4:
+                dataD.clear();
+                break;
+            }
+          }
+
+        }
+        break;
+      }
+    case 4:
+      {
+        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+          if (activeBehaviors[cmd].timer == 3) {
+            ITimer3.stopTimer();
+            timer3Used = false;
+            activeBehaviors.remove(cmd);
+            switch (activeBehaviors[cmd].databank) {
+              case 1:
+                dataA.clear();
+                break;
+              case 2:
+                dataB.clear();
+                break;
+              case 3:
+                dataC.clear();
+                break;
+              case 4:
+                dataD.clear();
+                Serial.println("Data D erased");
+                break;
+            }
+          }
+
+        }
+        break;
+      }
+
+  }
+}
+
+
+
+
+
+
+
 void behavior::behaviorHandler(struct Command command, EthernetClient query) {
 
   activeCommand = command;
   activeQuery = query;
 
   switch (activeCommand.mode) {
-
+      Serial.print(">Selected mode: ");
     case 0:
-      { Serial.print(">Selected mode: ");
+      {
         ISinfo();
         break;
       }
     case 1:
       {
-        Serial.print(">Selected mode: ");
+        
         regularMeasure();
         break;
       }
     case 9:
-      { Serial.print(">Selected mode: ");
+      {
         unitaryMeasure();
+        break;
+      }
+    case 10:
+
+      {
+        databankRead();
+        break;
+      }
+    case 11:
+      {
+
+        measureReset();
         break;
       }
   }

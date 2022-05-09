@@ -167,7 +167,7 @@ struct Command ISnetwork::queryAK() {
             Serial.println("   \\LOGICAL LEVEL value set");
           }
           if (((String)qParam).equals("B")) {
-            requestedCommand.dataBank = ((String)qValue).toInt();
+            requestedCommand.databank = ((String)qValue).toInt();
             Serial.println("   \\DATA BANK value set");
           }
           if (((String)qParam).equals("I")) {

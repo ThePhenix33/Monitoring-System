@@ -15,7 +15,8 @@ int readingPeriod=-1;
 int min=-1;
 int max=-1; 
 int logicalLevel=-1;
-int dataBank=-1; 
+int databank=-1; 
+int timer=-1;
 int interrupt=-1;
 };
 
