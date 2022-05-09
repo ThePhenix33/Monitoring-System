@@ -10,6 +10,9 @@ int idx = 0;
 int nbDevices = 0;
 
 
+
+//EthernetClient activeQuery;
+//struct Command activeBehavior,lastBehavior, activeCommand;
 activeBehaviorsList activeBehaviors;
 
 
@@ -108,6 +111,120 @@ bool behavior::timer3Handler(struct repeating_timer *t) {
 
 
 
+
+void behavior::measure() {
+
+  Serial.println("Measuring requested");
+
+  behavior usedBehavior;
+
+  Serial.println("TIMER| Reading ID");
+  Serial.println(activeBehaviors[0].id);
+  Serial.println("TIMER| Activation");
+  float data;
+  float time;
+  struct Measure mes;
+  databank* db;
+  int timer = -2;
+  if (tim0) {
+    selTim = 0;
+    tim0 = false;
+  } else if (tim1) {
+    selTim = 1;
+    tim1 = false;
+  } else if (tim2) {
+    selTim = 2;
+    tim2 = false;
+  } else if (tim3) {
+    selTim = 3;
+    tim3 = false;
+  }
+
+  for (int at = 0; at < activeBehaviors.size(); at++) {
+    if (activeBehaviors[at].timer == selTim) {
+      timer = at;
+      break;
+    }
+  }
+  switch (activeBehaviors[timer].databank) {
+    case 1:
+      db = &dataA;
+      break;
+    case 2:
+      db = &dataB;
+      break;
+    case 3:
+      db = &dataC;
+      break;
+    case 4:
+      db = &dataD;
+      break;
+  }
+
+  switch (activeBehaviors[timer].id) {
+    case 1:
+      {
+
+        Serial.println(" >Temperature measurement..");
+
+        if (sht.dataReady())
+        {
+          bool success  = sht.readData();
+          sht.requestData();
+
+          if (success == false)
+          {
+            Serial.println(" >Failed read");
+          }
+          else
+          {
+            data = sht.getRawTemperature() * (175.0 / 65535) - 45;
+            mes.data = data;
+            mes.time = millis();
+            db->push_back(mes);
+            Serial.println(db->size());
+          }
+        }
+        break;
+      }
+    case 2:
+      {
+        Serial.println(" >Humidity measurement..");
+
+
+        if (sht.dataReady())
+        {
+          bool success  = sht.readData();
+          sht.requestData();
+
+          if (success == false)
+          {
+            Serial.println(" >Failed read");
+          }
+          else
+          {
+            data = sht.getRawHumidity() * (100.0 / 65535);
+            mes.data = data;
+            mes.time = millis();
+            db->push_back(mes);
+          }
+        }
+
+        break;
+      }
+    case 5:
+      {
+        Serial.println(" >ADC measurement..");
+        data = analogRead(27);
+        mes.data = data;
+        mes.time = millis();
+        db->push_back(mes);
+
+        break;
+      }
+  }
+
+}
 
 
 
@@ -266,120 +383,6 @@ void behavior::regularMeasure() {
 }
 
 
-void behavior::measure() {
-
-  Serial.println("Measuring requested");
-
-  behavior usedBehavior;
-
-  Serial.println("TIMER| Reading ID");
-  Serial.println(activeBehaviors[0].id);
-  Serial.println("TIMER| Activation");
-  float data;
-  float time;
-  struct Measure mes;
-  databank* db;
-  int timer = -2;
-  if (tim0) {
-    selTim = 0;
-    tim0 = false;
-  } else if (tim1) {
-    selTim = 1;
-    tim1 = false;
-  } else if (tim2) {
-    selTim = 2;
-    tim2 = false;
-  } else if (tim3) {
-    selTim = 3;
-    tim3 = false;
-  }
-
-  for (int at = 0; at < activeBehaviors.size(); at++) {
-    if (activeBehaviors[at].timer == selTim) {
-      timer = at;
-      break;
-    }
-  }
-  switch (activeBehaviors[timer].databank) {
-    case 1:
-      db = &dataA;
-      break;
-    case 2:
-      db = &dataB;
-      break;
-    case 3:
-      db = &dataC;
-      break;
-    case 4:
-      db = &dataD;
-      break;
-  }
-
-  switch (activeBehaviors[timer].id) {
-    case 1:
-      {
-
-        Serial.println(" >Temperature measurement..");
-
-        if (sht.dataReady())
-        {
-          bool success  = sht.readData();
-          sht.requestData();
-
-          if (success == false)
-          {
-            Serial.println(" >Failed read");
-          }
-          else
-          {
-            data = sht.getRawTemperature() * (175.0 / 65535) - 45;
-            mes.data = data;
-            mes.time = millis();
-            db->push_back(mes);
-            Serial.println(db->size());
-          }
-        }
-        break;
-      }
-    case 2:
-      {
-        Serial.println(" >Humidity measurement..");
-
-
-        if (sht.dataReady())
-        {
-          bool success  = sht.readData();
-          sht.requestData();
-
-          if (success == false)
-          {
-            Serial.println(" >Failed read");
-          }
-          else
-          {
-            data = sht.getRawHumidity() * (100.0 / 65535);
-            mes.data = data;
-            mes.time = millis();
-            db->push_back(mes);
-          }
-        }
-
-        break;
-      }
-    case 5:
-      {
-        Serial.println(" >ADC measurement..");
-        data = analogRead(27);
-        mes.data = data;
-        mes.time = millis();
-        db->push_back(mes);
-
-        break;
-      }
-  }
-
-}
-
 /*MODE 9 : UNITARY MEASURE
 
    Returns selected sensor entry data
@@ -483,15 +486,17 @@ void behavior::unitaryMeasure() {
 /*MODE 10 : DATABANK READ
  * 
  *
- *Provide data from the selected databank
+ *  Provide data from the selected databank
+ * 
  *
  */
+ 
 void behavior::databankRead() {
 
   switch (activeCommand.databank) {
     case 1:
       for (int dataRead = 0; dataRead < dataA.size(); dataRead++) {
-        Serial.println(dataA[dataRead].data);
+        activeQuery.write(dataA[dataRead].data);
       }
       break;
     case 2:
@@ -656,12 +661,6 @@ void behavior::measureReset() {
   }
 }
 
-
-
-
-
-
-
 void behavior::behaviorHandler(struct Command command, EthernetClient query) {
 
   activeCommand = command;
@@ -676,7 +675,7 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query) {
       }
     case 1:
       {
-        
+        ;
         regularMeasure();
         break;
       }
