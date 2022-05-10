@@ -6,21 +6,22 @@
 SHT31 sht;
 
 
-int idx = 0;
+
 int nbDevices = 0;
 
-
-
-//EthernetClient activeQuery;
-//struct Command activeBehavior,lastBehavior, activeCommand;
 activeBehaviorsList activeBehaviors;
+
+
+
+
+
+
+
 
 
 void behavior::sensorScan() {
 
   byte error, address;
-
-
   Serial.println("Scanning...");
 
   nbDevices = 0;
@@ -83,6 +84,10 @@ void behavior::sensorSetup() {
 
 
 
+
+
+
+
 bool behavior::timer0Handler(struct repeating_timer *t) {
   tim0 = true;
   behavior::measure();
@@ -114,28 +119,36 @@ bool behavior::timer3Handler(struct repeating_timer *t) {
 
 void behavior::measure() {
 
-  Serial.println("Measuring requested");
+  Serial.println("  |TIMER| Measuring requested");
 
   behavior usedBehavior;
 
-  Serial.println("TIMER| Reading ID");
+  Serial.print("  |TIMER| Reading Sensor ID ");
   Serial.println(activeBehaviors[0].id);
-  Serial.println("TIMER| Activation");
+  Serial.println("  |TIMER| Activation");
   float data;
   float time;
   struct Measure mes;
-  databank* db;
+  int dateRef;
+
+
+
   int timer = -2;
+
   if (tim0) {
+    dateRef = t0date;
     selTim = 0;
     tim0 = false;
   } else if (tim1) {
+    dateRef = t1date;
     selTim = 1;
     tim1 = false;
   } else if (tim2) {
+    dateRef = t2date;
     selTim = 2;
     tim2 = false;
   } else if (tim3) {
+    dateRef = t3date;
     selTim = 3;
     tim3 = false;
   }
@@ -146,26 +159,15 @@ void behavior::measure() {
       break;
     }
   }
-  switch (activeBehaviors[timer].databank) {
-    case 1:
-      db = &dataA;
-      break;
-    case 2:
-      db = &dataB;
-      break;
-    case 3:
-      db = &dataC;
-      break;
-    case 4:
-      db = &dataD;
-      break;
-  }
+
+
+  dbIndex = activeBehaviors[timer].databank - 1;
 
   switch (activeBehaviors[timer].id) {
     case 1:
       {
 
-        Serial.println(" >Temperature measurement..");
+        Serial.println("   \\Temperature measurement..");
 
         if (sht.dataReady())
         {
@@ -174,22 +176,21 @@ void behavior::measure() {
 
           if (success == false)
           {
-            Serial.println(" >Failed read");
+            Serial.println("  \\Failed read");
           }
           else
           {
+
             data = sht.getRawTemperature() * (175.0 / 65535) - 45;
             mes.data = data;
-            mes.time = millis();
-            db->push_back(mes);
-            Serial.println(db->size());
+            mes.time = millis() - dateRef;
           }
         }
         break;
       }
     case 2:
       {
-        Serial.println(" >Humidity measurement..");
+        Serial.println("   \\Humidity measurement..");
 
 
         if (sht.dataReady())
@@ -199,14 +200,15 @@ void behavior::measure() {
 
           if (success == false)
           {
-            Serial.println(" >Failed read");
+            Serial.println("   \\Failed read");
           }
           else
           {
             data = sht.getRawHumidity() * (100.0 / 65535);
             mes.data = data;
-            mes.time = millis();
-            db->push_back(mes);
+            mes.time = millis() - dateRef;
+
+
           }
         }
 
@@ -214,14 +216,33 @@ void behavior::measure() {
       }
     case 5:
       {
-        Serial.println(" >ADC measurement..");
+        Serial.println("   \\ADC measurement..");
         data = analogRead(27);
         mes.data = data;
-        mes.time = millis();
-        db->push_back(mes);
+        mes.time = millis() - dateRef;
+
 
         break;
       }
+  }
+
+  if (activeBehaviors[timer].mode == 2 || activeBehaviors[timer].mode == 3) {
+
+    if (data < activeBehaviors[timer].min || data > activeBehaviors[timer].max) {
+      Serial.print("   |Sensor ");
+      Serial.print(activeBehaviors[timer].id);
+      Serial.println(" has threshold reached");
+    }
+  }
+
+  if (activeBehaviors[timer].mode != 3)
+  {
+    databank[dbIndex][indexes[dbIndex]++] = mes;
+    Serial.print("   |Storing measure in databank ");
+    Serial.print(dbIndex);
+    Serial.print(" at index\n ");
+    Serial.println(indexes[dbIndex]);
+
   }
 
 }
@@ -235,6 +256,8 @@ void behavior::measure() {
    and the last mode selected with the
    associated parameters.
 
+            IP/?M=0
+
 */
 void behavior::ISinfo() {
   Serial.println("INTELLIGENT SENSOR INFO");
@@ -245,11 +268,11 @@ void behavior::ISinfo() {
   }
 
   for (int ab = 0; ab <   activeBehaviors.size(); ab++) {
-    doc["activeBehavior"][ab]["mode"] = activeBehaviors[ab].mode;
-    doc["activeBehavior"][ab]["sensor"] = activeBehaviors[ab].id;
-    doc["activeBehavior"][ab]["period"] = activeBehaviors[ab].readingPeriod;
-    doc["activeBehavior"][ab]["databank"] = activeBehaviors[ab].databank;
-    doc["activeBehavior"][ab]["timer"] = activeBehaviors[ab].timer;
+    doc["activeBehaviors"][ab]["mode"] = activeBehaviors[ab].mode;
+    doc["activeBehaviors"][ab]["sensor"] = activeBehaviors[ab].id;
+    doc["activeBehaviors"][ab]["period"] = activeBehaviors[ab].readingPeriod;
+    doc["activeBehaviors"][ab]["databank"] = activeBehaviors[ab].databank;
+    doc["activeBehaviors"][ab]["timer"] = activeBehaviors[ab].timer + 1;
   }
 
 
@@ -271,6 +294,23 @@ void behavior::ISinfo() {
    from once a second to once an hour.
    Data is stored into an avalaible data bank
    which is then accessible.
+
+     IP/?M=1&C=id&P=period(ms)
+
+   MODE 2: REGULAR MEASURE + THRESHOLD
+
+   Mode 1 with alert sent to the server whenever
+   the specified threshold (minimal value and maximal values)
+   is passed over.
+
+      IP/?M=2&C=id&P=period(ms)&min=minimumValue&MM=maximumValue
+
+   MODE 3: THRESHOLD WATCHDOG
+
+   Mode 2 without data storage.
+
+      IP/?M=3&C=id&P=period(ms)&min=minimumValue&MM=maximumValue
+
 */
 
 
@@ -278,10 +318,22 @@ void behavior::ISinfo() {
 void behavior::regularMeasure() {
 
 
-  Serial.println("REGULAR MEASURE");
+  switch (activeCommand.mode) {
+    case 1:
+      Serial.println("REGULAR MEASURE");
+      break;
+    case 2:
+      Serial.println("REGULAR MEASURE w/ TRESHOLD WATCHDOG");
+      break;
+    case 3:
+      Serial.println("TRESHOLD WATCHDOG");
+      break;
+  }
 
 
   if (activeCommand.readingPeriod < 0) {
+
+
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "reading period is not specified";
@@ -296,23 +348,27 @@ void behavior::regularMeasure() {
       doc["error"] = "sensor id is not specified";
       serializeJson(doc, activeQuery);
 
-    } else  if (dataA.size() > 0 && dataB.size() > 0 && dataC.size() > 0 && dataD.size() > 0) {
+    } else  if (indexes[0] > 0 && indexes[1] > 0 && indexes[2] > 0 && indexes[3] > 0) {
       DynamicJsonDocument doc(1024);
 
       doc["error"] = "no databank available";
       serializeJson(doc, activeQuery);
+    } else if ((activeCommand.mode == 2 && activeCommand.min == -1 && activeCommand.max == -1) || (activeCommand.mode == 3 && activeCommand.min == -1 && activeCommand.max == -1)) {
+      DynamicJsonDocument doc(1024);
+
+      doc["error"] = "no threshold specified";
+      serializeJson(doc, activeQuery);
     }
     else {
 
-      if (!dataA.size()) {
-        Serial.println(dataA.size());
-        activeCommand.databank = 1;
-      } else if (!dataB.size()) {
-        activeCommand.databank = 2;
-      } else if (!dataC.size()) {
-        activeCommand.databank = 3;
-      } else if (!dataD.size()) {
-        activeCommand.databank = 4;
+      if (activeCommand.mode != 3) {
+        for (int i = 0; i < 4; i++) {
+          if (indexes[i] < 0) {
+            activeCommand.databank = i + 1;
+            indexes[i]++;
+            break;
+          }
+        }
       }
 
 
@@ -321,11 +377,17 @@ void behavior::regularMeasure() {
 
           Serial.println("Timer Start OK");
           ITimer0.restartTimer();
+          t0date = millis();
           timer0Used = true;
           activeCommand.timer = 0;
           lastBehavior = activeCommand;
 
           activeBehaviors.push_back(activeCommand);
+
+
+          DynamicJsonDocument doc(1024);
+          doc["status"] = "timer 1 started";
+          serializeJson(doc, activeQuery);
 
         } else {
           Serial.println("Failed to start timer");
@@ -335,10 +397,15 @@ void behavior::regularMeasure() {
         if (ITimer1.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer1Handler)) {
           Serial.println("Timer Start OK");
           ITimer1.restartTimer();
+          t1date = millis();
           timer1Used = true;
           activeCommand.timer = 1;
           lastBehavior = activeCommand;
           activeBehaviors.push_back(activeCommand);
+
+          DynamicJsonDocument doc(1024);
+          doc["status"] = "timer 2 started";
+          serializeJson(doc, activeQuery);
 
         } else {
           Serial.println("Failed to start timer");
@@ -347,10 +414,16 @@ void behavior::regularMeasure() {
         if (ITimer2.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer2Handler)) {
           Serial.println("Timer Start OK");
           ITimer2.restartTimer();
+          t2date = millis();
           timer2Used = true;
           activeCommand.timer = 2;
           lastBehavior = activeCommand;
           activeBehaviors.push_back(activeCommand);
+
+          DynamicJsonDocument doc(1024);
+          doc["status"] = "timer 3 started";
+          serializeJson(doc, activeQuery);
+
         } else {
           Serial.println("Failed to start timer");
         }
@@ -358,10 +431,16 @@ void behavior::regularMeasure() {
         if (ITimer3.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer3Handler)) {
           Serial.println("Timer Start OK");
           ITimer3.restartTimer();
+          t3date = millis();
           timer3Used = true;
           activeCommand.timer = 3;
           lastBehavior = activeCommand;
           activeBehaviors.push_back(activeCommand);
+
+          DynamicJsonDocument doc(1024);
+          doc["status"] = "timer 4 started";
+          serializeJson(doc, activeQuery);
+
         } else {
           Serial.println("Failed to start timer");
         }
@@ -484,218 +563,207 @@ void behavior::unitaryMeasure() {
 
 
 /*MODE 10 : DATABANK READ
- * 
- *
- *  Provide data from the selected databank
- * 
- *
- */
- 
+
+
+    Provide data from the selected databank
+
+          IP/?M=10&B=databank
+          
+*/
 void behavior::databankRead() {
 
-  switch (activeCommand.databank) {
-    case 1:
-      for (int dataRead = 0; dataRead < dataA.size(); dataRead++) {
-        activeQuery.write(dataA[dataRead].data);
-      }
-      break;
-    case 2:
 
-      for (int dataRead = 0; dataRead < dataB.size(); dataRead++) {
-        Serial.println(dataB[dataRead].data);
-      }
-      break;
-    case 3:
+  Serial.println("DATABANK READ");
 
-      for (int dataRead = 0; dataRead < dataC.size(); dataRead++) {
-        Serial.println(dataC[dataRead].data);
-      }
-      break;
-    case 4:
 
-      for (int dataRead = 0; dataRead < dataD.size(); dataRead++) {
-        Serial.println(dataD[dataRead].data);
-      }
-      break;
+  if (!(activeCommand.databank < 0)) {
+
+    for (int dataRead = 0; dataRead < indexes[activeCommand.databank - 1]; dataRead++) {
+      Serial.println(databank[activeCommand.databank - 1][dataRead].data);
+    }
+    DynamicJsonDocument doc(1024);
+
+    doc["status"] = "data sent to server";
+    serializeJson(doc, activeQuery);
+
+    activeQuery.stop();
+  } else {
+    DynamicJsonDocument doc(1024);
+
+    doc["error"] = "databank is not specified";
+    serializeJson(doc, activeQuery);
+
   }
-
-
-  activeQuery.stop();
 }
+
+
+
+
 
 /*MODE 11 : MEASURE RESET
 
    Stops selected periodic measure
 
+    IP/?M=11&I=timer
+
 */
 
 void behavior::measureReset() {
 
+  if (!(activeCommand.interrupt < 0)) {
+
+    bool* timerXUsed;
+    int timInt;
+    RPI_PICO_Timer* ITimerX;
+
+    Measure clearMes;
+
+    if (activeCommand.interrupt == 0) {
 
 
-  switch (activeCommand.interrupt) {
-    case 0:
-      {
-        ITimer0.stopTimer();
-        ITimer1.stopTimer();
-        ITimer2.stopTimer();
-        ITimer3.stopTimer();
+      ITimer0.stopTimer();
+      ITimer1.stopTimer();
+      ITimer2.stopTimer();
+      ITimer3.stopTimer();
 
-        dataA.clear();
-        dataB.clear();
-        dataC.clear();
-        dataD.clear();
+      timer0Used = false;
+      timer1Used = false;
+      timer2Used = false;
+      timer3Used = false;
 
-        activeBehaviors.clear();
-        break;
+
+
+
+      for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < 3600; i++) {
+          databank[j][i] = clearMes;
+        }
+        indexes[j] = -1;
       }
-    case 1:
-      {
-        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
-          if (activeBehaviors[cmd].timer == 1) {
-            ITimer0.stopTimer();
-            timer0Used = false;
-            activeBehaviors.remove(cmd);
 
-            switch (activeBehaviors[cmd].databank) {
-              case 1:
-                dataA.clear();
-                break;
-              case 2:
-                dataB.clear();
-                break;
-              case 3:
-                dataC.clear();
-                break;
-              case 4:
-                dataD.clear();
-                break;
-            }
+
+      
+      activeBehaviors.clear();
+    } else {
+      switch (activeCommand.interrupt) {
+
+        case 1:
+          {
+            ITimerX = &ITimer0;
+            timInt = 0;
+            timerXUsed = &timer0Used;
+            break;
+          }
+        case 2:
+          {
+            ITimerX = &ITimer1;
+            timInt = 1;
+            timerXUsed = &timer1Used;
+            break;
+          }
+        case 3:
+          {
+            ITimerX = &ITimer2;
+            timInt = 2;
+            timerXUsed = &timer2Used;
+            break;
+          }
+        case 4:
+          {
+            ITimerX = &ITimer3;
+            timInt = 3;
+            timerXUsed = &timer3Used;
+            break;
+          }
+      }
+
+      for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+        if (activeBehaviors[cmd].timer == timInt) {
+          ITimerX->stopTimer();
+          *timerXUsed = false;
+          activeBehaviors.remove(cmd);
+
+          for (int i = 0; i < indexes[timInt]; i++) {
+            databank[activeBehaviors[cmd].databank][i] = clearMes;
           }
 
+          indexes[timInt] = -1;
         }
-        break;
+
       }
-    case 2:
-      {
-        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
-          if (activeBehaviors[cmd].timer == 1) {
-            ITimer1.stopTimer();
 
-            timer1Used = false;
-            activeBehaviors.remove(cmd);
-            switch (activeBehaviors[cmd].databank) {
-              case 1:
-                dataA.clear();
-                break;
-              case 2:
-                dataB.clear();
-                break;
-              case 3:
-                dataC.clear();
-                break;
-              case 4:
-                dataD.clear();
-                break;
-            }
-          }
 
-        }
-        break;
-      }
-    case 3:
-      {
-        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
-          if (activeBehaviors[cmd].timer == 2) {
-            ITimer2.stopTimer();
-            timer2Used = false;
-            activeBehaviors.remove(cmd);
+    }
+  } else {
+    DynamicJsonDocument doc(1024);
 
-            switch (activeBehaviors[cmd].databank) {
-              case 1:
-                dataA.clear();
-                break;
-              case 2:
-                dataB.clear();
-                break;
-              case 3:
-                dataC.clear();
-                break;
-              case 4:
-                dataD.clear();
-                break;
-            }
-          }
-
-        }
-        break;
-      }
-    case 4:
-      {
-        for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
-          if (activeBehaviors[cmd].timer == 3) {
-            ITimer3.stopTimer();
-            timer3Used = false;
-            activeBehaviors.remove(cmd);
-            switch (activeBehaviors[cmd].databank) {
-              case 1:
-                dataA.clear();
-                break;
-              case 2:
-                dataB.clear();
-                break;
-              case 3:
-                dataC.clear();
-                break;
-              case 4:
-                dataD.clear();
-                Serial.println("Data D erased");
-                break;
-            }
-          }
-
-        }
-        break;
-      }
+    doc["error"] = "measure to stop is not specified";
+    serializeJson(doc, activeQuery);
 
   }
 }
+
+
+
+
+
+
+
 
 void behavior::behaviorHandler(struct Command command, EthernetClient query) {
 
   activeCommand = command;
   activeQuery = query;
 
-  switch (activeCommand.mode) {
-      Serial.print(">Selected mode: ");
-    case 0:
-      {
-        ISinfo();
-        break;
-      }
-    case 1:
-      {
-        ;
-        regularMeasure();
-        break;
-      }
-    case 9:
-      {
-        unitaryMeasure();
-        break;
-      }
-    case 10:
+  if (!(activeCommand.mode < 0)) {
+    switch (activeCommand.mode) {
 
-      {
-        databankRead();
-        break;
-      }
-    case 11:
-      {
+      case 0:
+        { Serial.print(">Selected mode: ");
+          ISinfo();
+          break;
+        }
+      case 1:
+        {
+          Serial.print(">Selected mode: ");
+          regularMeasure();
+          break;
+        }
+      case 2:
+        {
+          Serial.print(">Selected mode: ");
+          regularMeasure();
+          break;
+        }
+      case 3:
+        {
+          Serial.print(">Selected mode: ");
+          regularMeasure();
+          break;
+        }
+      case 9:
+        { Serial.print(">Selected mode: ");
+          unitaryMeasure();
+          break;
+        }
+      case 10:
 
-        measureReset();
-        break;
-      }
+        { Serial.print(">Selected mode: ");
+          databankRead();
+          break;
+        }
+      case 11:
+        {
+          Serial.print(">Selected mode: ");
+          measureReset();
+          break;
+        }
+    }
+  } else {
+    DynamicJsonDocument doc(1024);
+
+    doc["error"] = "mode is not specified";
+    serializeJson(doc, activeQuery);
+
   }
-
 }

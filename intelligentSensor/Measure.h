@@ -10,7 +10,8 @@
 struct Measure{
 
 float data=-1;
-int time=-1;
+unsigned short time=-1;
+
 };
 
 #endif
