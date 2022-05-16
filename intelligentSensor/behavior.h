@@ -1,3 +1,14 @@
+/*
+   Behavior
+
+   Yann BLANC
+
+  Lists all the modes provided by the
+  Intelligent Sensor, and handle the behavior
+  it should have depending on the selected mode.
+  
+*/
+
 #ifndef behavior_H
 #define behavior_H
 
@@ -8,6 +19,7 @@
 #include <Ethernet.h>
 #include "Command.h"
 #include "Measure.h"
+#include "ISnetwork.h"
 #include <Array.h>
 
 
@@ -20,33 +32,40 @@
 
 #define LOCAL_DEBUG               1
 
-typedef Array<struct Command, 4> activeBehaviorsList;
+typedef Array<struct Command, 6> activeBehaviorsList;
 
 
-static struct Measure mesAtest;
+static const short databankSize = 3600;
 
 class behavior  {
 
   private:
-
+  
+#define PIN_A 12
+#define PIN_B 13
 
   public:
+
     static void measure();
     static bool timer0Handler(struct repeating_timer *t);
     static bool timer1Handler(struct repeating_timer *t);
     static bool timer2Handler(struct repeating_timer *t);
     static bool timer3Handler(struct repeating_timer *t);
 
+    static void detectionAction();
+    static void detectionAHandler();
+    static void detectionBHandler();
+
     short int nbDevices;
     int connectedSensors[128];
     void sensorScan();
 
-    EthernetClient activeQuery;
+
 
 
 
     void sensorSetup();
-    void behaviorHandler(struct Command activeCommand, EthernetClient activeQuery);
+    void behaviorHandler(struct Command activeCommand, EthernetClient activeQuery, EthernetClient client);
     void ISinfo();
     void regularMeasureAlert();
     void regularMeasureAlertDataLess();
@@ -62,21 +81,31 @@ class behavior  {
 
 
 
-//128716 (4 tableaux)
-//157516 (5 tableaux)
+    //128716 (4 tableaux)
+    //157516 (5 tableaux)
 };
 
+static bool measureStarted;
+static EthernetClient activeClient;
+static EthernetClient activeQuery;
+
+
+static IPAddress knownIP[10];
 
 static struct Command activeCommand, lastBehavior;
-static struct Measure databank[5][3600];
+static struct Measure databank[4][databankSize];
 
-static short dbIndex=-1, idxA=-1, idxB=-1, idxC=-1, idxD=-1;
+static short dbIndex = -1, idxA = -1, idxB = -1, idxC = -1, idxD = -1;
 static short* idxX;
-static short indexes[] ={idxA,idxB,idxC,idxD};
+static short indexes[] = {idxA, idxB, idxC, idxD};
 
 static int activeBehaviorsCount;
 
 static bool timer0Used = 0, timer1Used = 0, timer2Used = 0, timer3Used = 0;
+
+
+
+static int startA,startB;
 static int t0date, t1date, t2date, t3date;
 static int selTim;
 static bool tim0 = 0, tim1 = 0, tim2 = 0, tim3 = 0;
@@ -85,5 +114,6 @@ static RPI_PICO_Timer ITimer1(1);
 static RPI_PICO_Timer ITimer2(2);
 static RPI_PICO_Timer ITimer3(3);
 
-
+static bool irAused = 0, irBused = 0;
+static bool itA = 0, itB = 0;
 #endif

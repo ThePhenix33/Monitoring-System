@@ -1,3 +1,13 @@
+/*
+   Command.h
+
+   Yann BLANC
+
+   struct that permits easy recover of the parameters sent by
+   the server via a HTTP request.
+   
+*/
+
 #ifndef Measure_H
 #define Measure_H
 

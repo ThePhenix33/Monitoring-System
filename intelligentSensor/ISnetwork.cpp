@@ -1,3 +1,17 @@
+/*
+   ISnetwork
+
+   Yann BLANC
+
+   Handle the Intelligent Sensor network aspect,
+   from connecting to the global network to handle
+   HTTP requests.
+  
+*/
+
+
+
+
 #include "ISnetwork.h"
 
 
@@ -10,7 +24,7 @@ byte mac[] = {
 //HTTP protocol needs port 80
 EthernetServer server(80);
 
-EthernetClient userQuery;
+EthernetClient userQuery,client;
 
 int ISnetwork::networkCheck() {
 
@@ -62,7 +76,7 @@ void ISnetwork::networkSetup() {
   delay(1000);
 
   //At this point the IS is connected to the network
-  
+
  // IPAddress gateway(192, 168, 10, 1); //Only for local switch network
  // Ethernet.setGatewayIP(gateway);
   Serial.print("My IP address: ");
@@ -75,9 +89,6 @@ void ISnetwork::networkSetup() {
   server.begin();
 
 }
-
-
-
 
 struct Command ISnetwork::queryAK() {
   struct Command requestedCommand;
@@ -107,7 +118,7 @@ struct Command ISnetwork::queryAK() {
         */
 
 
-        while (c == '?'|| c== '&') {
+        while (c == '?' || c == '&') {
           while (c != '=') {
             c = userQuery.read();
             if (c != '=')qParam[i] = c;
@@ -121,7 +132,7 @@ struct Command ISnetwork::queryAK() {
 
           i = 0;
 
-          while ( c != ' ' && c!='&') {
+          while ( c != ' ' && c != '&') {
             c = userQuery.read();
             if (c == '&') {
               Serial.println(" *Another parameter next");
@@ -177,13 +188,13 @@ struct Command ISnetwork::queryAK() {
 
 
           //Parameter and value buffers resetting
-          for(int i=0;i<((String)qParam).length();i++){
-          qParam[i]=' ';
-         
+          for (int i = 0; i < ((String)qParam).length(); i++) {
+            qParam[i] = ' ';
+
           }
-           for(int i=0;i<((String)qValue).length();i++){
-          qValue[i]=' ';
-         
+          for (int i = 0; i < ((String)qValue).length(); i++) {
+            qValue[i] = ' ';
+
           }
 
         }

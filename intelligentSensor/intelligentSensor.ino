@@ -20,28 +20,20 @@ ISnetwork network;
 behavior behavior;
 
 
-
-
-//RPI_PICO_Timer ITimer0(0);
 void setup() {
+  
   pinMode(15, OUTPUT);
   network.networkSetup();
   behavior.sensorSetup();
-  
-  /* if (ITimer0.attachInterruptInterval(1000 * 1000, behavior.measure)) {
-      Serial.println("Timer Start OK");
-
-    } else {
-      Serial.println("Failed to start timer");
-    }*/
+ 
 }
 
 void loop() {
 
 
   while ( network.networkCheck() < 0) { }
-//Serial.println("loop");
-  behavior.behaviorHandler(network.queryAK(), network.userQuery);
+
+  behavior.behaviorHandler(network.queryAK(), network.userQuery, network.client);
 
     
   if (network.userQuery.connected()) {

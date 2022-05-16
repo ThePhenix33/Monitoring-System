@@ -1,3 +1,15 @@
+/*
+   Behavior
+
+   Yann BLANC
+
+  Lists all the modes provided by the
+  Intelligent Sensor, and handle the behavior
+  it should have depending on the selected mode.
+
+*/
+
+
 #include "behavior.h"
 
 
@@ -118,13 +130,16 @@ bool behavior::timer3Handler(struct repeating_timer *t) {
 
 
 void behavior::measure() {
-
+  while(measureStarted){
+  Serial.println("PLEASE WAIT");
+}
+  measureStarted=true;
+  
   Serial.println("  |TIMER| Measuring requested");
 
   behavior usedBehavior;
 
-  Serial.print("  |TIMER| Reading Sensor ID ");
-  Serial.println(activeBehaviors[0].id);
+
   Serial.println("  |TIMER| Activation");
   float data;
   float time;
@@ -160,6 +175,8 @@ void behavior::measure() {
     }
   }
 
+  Serial.print("  |TIMER| Reading Sensor ID ");
+  Serial.println(activeBehaviors[timer].id);
 
   dbIndex = activeBehaviors[timer].databank - 1;
 
@@ -232,19 +249,58 @@ void behavior::measure() {
       Serial.print("   |Sensor ");
       Serial.print(activeBehaviors[timer].id);
       Serial.println(" has threshold reached");
+
+
+      //SEND ALERT
+      /*  if (activeQuery.connect(knownIP[0], 80)) {
+          Serial.println(knownIP[0]);
+
+              HTTP Request sent to the server
+
+                  activeQuery.println(" HTTP/1.1");
+                  activeQuery.println("Content-Type: text/html");
+                  activeQuery.println("Connection: close");
+                  // the connection will be closed after completion of the response
+                  activeQuery.println();
+                  activeQuery.println("<!DOCTYPE HTML>");
+                  activeQuery.println("<html>");
+
+                  activeQuery.print("DEPASSEMENT");
+                  activeQuery.println("<br />");
+                  activeQuery.println("</html>");
+                  delay(10);
+
+
+
+        }*/
+      /////////////////////////
+
     }
   }
 
   if (activeBehaviors[timer].mode != 3)
   {
-    databank[dbIndex][indexes[dbIndex]++] = mes;
-    Serial.print("   |Storing measure in databank ");
-    Serial.print(dbIndex);
-    Serial.print(" at index\n ");
-    Serial.println(indexes[dbIndex]);
 
+
+    if (indexes[dbIndex] < databankSize - 1) {
+      if (indexes[dbIndex] < 0)indexes[dbIndex]++;
+      databank[dbIndex][indexes[dbIndex]++] = mes;
+      Serial.print("   |Storing measure in databank ");
+      Serial.print(dbIndex);
+      Serial.print(" at index ");
+      Serial.println(indexes[dbIndex]);
+      Serial.print("\n");
+    } else {
+
+      Serial.print("   |Databank ");
+      Serial.print(dbIndex);
+      Serial.println(" is full\n ");
+
+    }
   }
 
+
+measureStarted=false;
 }
 
 
@@ -271,6 +327,8 @@ void behavior::ISinfo() {
     doc["activeBehaviors"][ab]["mode"] = activeBehaviors[ab].mode;
     doc["activeBehaviors"][ab]["sensor"] = activeBehaviors[ab].id;
     doc["activeBehaviors"][ab]["period"] = activeBehaviors[ab].readingPeriod;
+    doc["activeBehaviors"][ab]["maximum"] = activeBehaviors[ab].max;
+    doc["activeBehaviors"][ab]["minimum"] = activeBehaviors[ab].min;
     doc["activeBehaviors"][ab]["databank"] = activeBehaviors[ab].databank;
     doc["activeBehaviors"][ab]["timer"] = activeBehaviors[ab].timer + 1;
   }
@@ -297,7 +355,7 @@ void behavior::ISinfo() {
 
      IP/?M=1&C=id&P=period(ms)
 
-   MODE 2: REGULAR MEASURE + THRESHOLD
+   MODE 2: REGULAR MEASURE + THRESHOLD WATCHDOG
 
    Mode 1 with alert sent to the server whenever
    the specified threshold (minimal value and maximal values)
@@ -358,6 +416,11 @@ void behavior::regularMeasure() {
 
       doc["error"] = "no threshold specified";
       serializeJson(doc, activeQuery);
+    }else if(measureStarted){
+      DynamicJsonDocument doc(1024);
+
+      doc["error"] = "measure happened in the same time, please try again";
+      serializeJson(doc, activeQuery);
     }
     else {
 
@@ -370,6 +433,7 @@ void behavior::regularMeasure() {
           }
         }
       }
+
 
 
       if (!timer0Used) {
@@ -461,7 +525,185 @@ void behavior::regularMeasure() {
 
 }
 
+/*MODE 4 : DETECTION
 
+
+  Works on pin 3 & 4
+
+  P=0 -> Send an alert whenever the pin read value changes.
+  P>0 -> Same as previous mode, but the P value defines the alert
+  cooldown to prevent overflowing requests.
+
+        IP/?M=4&C=sensors&P=cooldown
+
+*/
+void behavior::detectionAction() {
+
+  int interruptPin = -2;
+
+  bool* irXused;
+  int* startX;
+
+  if (itA) {
+    startX = &startA;
+    irXused = &irAused;
+    for (int at = 0; at < activeBehaviors.size(); at++) {
+      if (activeBehaviors[at].mode == 4) {
+
+        if (activeBehaviors[at].id == PIN_A) {
+          interruptPin = at;
+          break;
+        }
+      }
+    }
+
+
+  } else if (itB) {
+    startX = &startB;
+    irXused = &irBused;
+    for (int at = 0; at < activeBehaviors.size(); at++) {
+      if (activeBehaviors[at].mode == 4) {
+
+        if (activeBehaviors[at].id == PIN_B) {
+          interruptPin = at;
+          break;
+        }
+      }
+    }
+
+
+
+  }
+  if (activeBehaviors[interruptPin].readingPeriod > 0 && (millis() - *startX) > activeBehaviors[interruptPin].readingPeriod) {
+
+
+    Serial.println("DETECTION");
+
+    //SEND ALERT
+    /*  if (activeQuery.connect(knownIP[0], 80)) {
+        Serial.println(knownIP[0]);
+
+            HTTP Request sent to the server
+
+                activeQuery.println(" HTTP/1.1");
+                activeQuery.println("Content-Type: text/html");
+                activeQuery.println("Connection: close");
+                // the connection will be closed after completion of the response
+                activeQuery.println();
+                activeQuery.println("<!DOCTYPE HTML>");
+                activeQuery.println("<html>");
+
+                activeQuery.print("DEPASSEMENT");
+                activeQuery.println("<br />");
+                activeQuery.println("</html>");
+                delay(10);
+
+
+
+      }*/
+    /////////////////////////
+
+
+
+
+    *startX = millis();
+  }
+  if (activeBehaviors[interruptPin].readingPeriod <= 0) {
+    Serial.println("DETECTION");
+    detachInterrupt(digitalPinToInterrupt(activeBehaviors[interruptPin].id));
+    *irXused = false;
+    activeBehaviors.remove(interruptPin);
+  }
+
+}
+
+
+
+void behavior::detectionAHandler() {
+  itA = true;
+  behavior::detectionAction();
+}
+
+void behavior::detectionBHandler() {
+  itB = true;
+  behavior::detectionAction();
+}
+
+
+
+
+
+
+void behavior::detection() {
+
+  if (activeCommand.id < 0) {
+
+
+    DynamicJsonDocument doc(1024);
+
+    doc["error"] = "sensor id is not specified";
+    serializeJson(doc, activeQuery);
+  } else if (activeCommand.id == PIN_A || activeCommand.id == PIN_B) {
+
+
+    if (activeCommand.id == PIN_A ) {
+      if (!irAused) {
+        attachInterrupt(digitalPinToInterrupt(PIN_A), detectionAHandler, CHANGE);
+
+        /* timer0Used = true;
+          activeCommand.timer = 0;*/
+        lastBehavior = activeCommand;
+
+        activeBehaviors.push_back(activeCommand);
+
+
+        DynamicJsonDocument doc(1024);
+        doc["status"] = "interrupt A started";
+        serializeJson(doc, activeQuery);
+
+        Serial.println("Interrupt set on sensor ");
+        Serial.println(activeCommand.id);
+        irAused = true;
+      } else {
+        DynamicJsonDocument doc(1024);
+
+        doc["error"] = "interrupt on pin A already started";
+        serializeJson(doc, activeQuery);
+      }
+    } else if (activeCommand.id == PIN_B ) {
+      if (!irBused) {
+        attachInterrupt(digitalPinToInterrupt(PIN_B), detectionBHandler, CHANGE);
+
+        /* timer0Used = true;
+          activeCommand.timer = 0;*/
+        lastBehavior = activeCommand;
+
+        activeBehaviors.push_back(activeCommand);
+
+
+        DynamicJsonDocument doc(1024);
+        doc["status"] = "interrupt B started";
+        serializeJson(doc, activeQuery);
+
+        Serial.println("Interrupt set on sensor ");
+        Serial.println(activeCommand.id);
+
+        irBused = true;
+
+      } else {
+        DynamicJsonDocument doc(1024);
+        doc["error"] = "interrupt on pin 4 already started";
+        serializeJson(doc, activeQuery);
+      }
+
+    }
+  } else {
+    DynamicJsonDocument doc(1024);
+
+    doc["error"] = "sensor id is not compatible with mode 4";
+    serializeJson(doc, activeQuery);
+  }
+}
 /*MODE 9 : UNITARY MEASURE
 
    Returns selected sensor entry data
@@ -533,6 +775,7 @@ void behavior::unitaryMeasure() {
             doc["data"][0] = sht.getRawHumidity() * (100.0 / 65535);
           }
         }
+
         Serial.println(" >Data sent!");
         serializeJson(doc, activeQuery);
 
@@ -568,23 +811,40 @@ void behavior::unitaryMeasure() {
     Provide data from the selected databank
 
           IP/?M=10&B=databank
-          
+
 */
 void behavior::databankRead() {
 
 
   Serial.println("DATABANK READ");
 
+  Measure clearMes;
+
 
   if (!(activeCommand.databank < 0)) {
 
-    for (int dataRead = 0; dataRead < indexes[activeCommand.databank - 1]; dataRead++) {
-      Serial.println(databank[activeCommand.databank - 1][dataRead].data);
-    }
     DynamicJsonDocument doc(1024);
 
+  
+ 
+    
+    for (int dataRead = 0; dataRead < indexes[activeCommand.databank - 1]; dataRead++) {
+
+      Serial.println(databank[activeCommand.databank - 1][dataRead].data);
+        doc["data"][dataRead] = databank[activeCommand.databank - 1][dataRead].data;
+
+      databank[activeCommand.databank - 1][dataRead] = clearMes;
+    }
+
+    indexes[activeCommand.databank - 1] = -1;
+ 
+   
+   serializeJson(doc, activeQuery);
+
+  /*  DynamicJsonDocument doc(1024);
+
     doc["status"] = "data sent to server";
-    serializeJson(doc, activeQuery);
+    serializeJson(doc, activeQuery);*/
 
     activeQuery.stop();
   } else {
@@ -603,7 +863,8 @@ void behavior::databankRead() {
 /*MODE 11 : MEASURE RESET
 
    Stops selected periodic measure
-
+   I=0 stops all the timers
+   I=5 to stop Mode 4 set on pin 3
     IP/?M=11&I=timer
 
 */
@@ -616,7 +877,7 @@ void behavior::measureReset() {
     int timInt;
     RPI_PICO_Timer* ITimerX;
 
-    Measure clearMes;
+
 
     if (activeCommand.interrupt == 0) {
 
@@ -634,15 +895,9 @@ void behavior::measureReset() {
 
 
 
-      for (int j = 0; j < 4; j++) {
-        for (int i = 0; i < 3600; i++) {
-          databank[j][i] = clearMes;
-        }
-        indexes[j] = -1;
-      }
 
 
-      
+
       activeBehaviors.clear();
     } else {
       switch (activeCommand.interrupt) {
@@ -675,6 +930,32 @@ void behavior::measureReset() {
             timerXUsed = &timer3Used;
             break;
           }
+        case 5:
+          {
+            irAused = false;
+            detachInterrupt(digitalPinToInterrupt(PIN_A));
+            for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+              if (activeBehaviors[cmd].mode == 4) {
+                if (activeBehaviors[cmd].id == PIN_A) {
+                  activeBehaviors.remove(cmd);
+                }
+              }
+            }
+            break;
+          }
+        case 6:
+          {
+            irBused = false;
+            detachInterrupt(digitalPinToInterrupt(PIN_B));
+            for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
+              if (activeBehaviors[cmd].mode == 4) {
+                if (activeBehaviors[cmd].id == PIN_B) {
+                  activeBehaviors.remove(cmd);
+                }
+              }
+            }
+            break;
+          }
       }
 
       for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
@@ -683,18 +964,14 @@ void behavior::measureReset() {
           *timerXUsed = false;
           activeBehaviors.remove(cmd);
 
-          for (int i = 0; i < indexes[timInt]; i++) {
-            databank[activeBehaviors[cmd].databank][i] = clearMes;
-          }
-
-          indexes[timInt] = -1;
         }
 
       }
 
 
     }
-  } else {
+  }
+  else {
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "measure to stop is not specified";
@@ -710,10 +987,17 @@ void behavior::measureReset() {
 
 
 
-void behavior::behaviorHandler(struct Command command, EthernetClient query) {
+void behavior::behaviorHandler(struct Command command, EthernetClient query, EthernetClient client) {
 
   activeCommand = command;
   activeQuery = query;
+  activeClient = client;
+
+  IPAddress nullIP(0, 0, 0, 0);
+
+  if (activeQuery.remoteIP() != nullIP) {
+    knownIP[0] = activeQuery.remoteIP();
+  }
 
   if (!(activeCommand.mode < 0)) {
     switch (activeCommand.mode) {
@@ -741,6 +1025,12 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query) {
           regularMeasure();
           break;
         }
+      case 4:
+        {
+          Serial.print(">Selected mode: ");
+          detection();
+          break;
+        }
       case 9:
         { Serial.print(">Selected mode: ");
           unitaryMeasure();
@@ -758,6 +1048,8 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query) {
           measureReset();
           break;
         }
+
+
     }
   } else {
     DynamicJsonDocument doc(1024);
