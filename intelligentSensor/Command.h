@@ -26,6 +26,7 @@ int max=-1;
 int logicalLevel=-1;
 int databank=-1; 
 int timer=-1;
+int timerStart=-2;
 int interrupt=-1;
 };
 

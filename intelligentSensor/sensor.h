@@ -10,12 +10,12 @@
 
 
 
-class Sensor {
-private:
+struct Sensor {
 
-public:
-Sensor(int id);
-command(Command command);
+int id=-1;
+int typeA=-1;
+int typeB=-1;
+
 
 };
 #endif

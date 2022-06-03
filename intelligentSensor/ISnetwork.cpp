@@ -16,6 +16,9 @@
 
 
 //Sensor MAC adress set on 002632f0204b
+
+
+//00-22-8F-10-A0-03
 byte mac[] = {
   0x00, 0x26, 0x32, 0xF0, 0x20, 0x4B
 };
@@ -228,11 +231,7 @@ struct Command ISnetwork::queryAK() {
   return requestedCommand;
 }
 void ISnetwork::endQuery() {
-  DynamicJsonDocument doc(1024);
 
-  delay(1);
-  doc["error"] = "Unknown command";
-  serializeJson(doc, userQuery);
   userQuery.stop();
   Serial.println("End of query \n \n");
 }

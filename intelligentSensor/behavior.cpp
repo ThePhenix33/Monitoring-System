@@ -22,13 +22,19 @@ SHT31 sht;
 int nbDevices = 0;
 
 activeBehaviorsList activeBehaviors;
+fsActiveBehaviorsList fsActiveBehaviors;
 
 
+DynamicJsonDocument fsBehavior(1024);
 
+/*
+  void configurationSave(){
 
+  File conf=LittleFS.open("configuration.txt","w")
+  if(conf){
 
-
-
+  }
+  }*/
 
 
 void behavior::sensorScan() {
@@ -130,23 +136,24 @@ bool behavior::timer3Handler(struct repeating_timer *t) {
 
 
 void behavior::measure() {
-  while(measureStarted){
-  Serial.println("PLEASE WAIT");
-}
-  measureStarted=true;
-  
+
+  while (measureStarted) {
+    Serial.println("PLEASE WAIT");
+  }
+  measureStarted = true;
+
   Serial.println("  |TIMER| Measuring requested");
 
   behavior usedBehavior;
 
-
+  // usedBehavior.sensorScan();
   Serial.println("  |TIMER| Activation");
   float data;
   float time;
   struct Measure mes;
   int dateRef;
-
-
+  short dbIndex;
+  RPI_PICO_Timer* ITimerX;
 
   int timer = -2;
 
@@ -154,18 +161,22 @@ void behavior::measure() {
     dateRef = t0date;
     selTim = 0;
     tim0 = false;
+    ITimerX = &ITimer0;
   } else if (tim1) {
     dateRef = t1date;
     selTim = 1;
     tim1 = false;
+    ITimerX = &ITimer1;
   } else if (tim2) {
     dateRef = t2date;
     selTim = 2;
     tim2 = false;
+    ITimerX = &ITimer2;
   } else if (tim3) {
     dateRef = t3date;
     selTim = 3;
     tim3 = false;
+    ITimerX = &ITimer3;
   }
 
   for (int at = 0; at < activeBehaviors.size(); at++) {
@@ -173,6 +184,9 @@ void behavior::measure() {
       timer = at;
       break;
     }
+  }
+  if (activeBehaviors[timer].timerStart == -2) {
+    activeBehaviors[timer].timerStart = millis();
   }
 
   Serial.print("  |TIMER| Reading Sensor ID ");
@@ -183,53 +197,90 @@ void behavior::measure() {
   switch (activeBehaviors[timer].id) {
     case 1:
       {
+        if (tempSens) {
+          while (mes.data == -1) {
+            Serial.println("   \\Temperature measurement..");
 
-        Serial.println("   \\Temperature measurement..");
+            if (sht.dataReady())
+            {
+              bool success  = sht.readData();
+              sht.requestData();
 
-        if (sht.dataReady())
-        {
-          bool success  = sht.readData();
-          sht.requestData();
+              if (success == false)
+              {
+                Serial.println("  \\Failed read");
+              }
+              else
+              {
 
-          if (success == false)
-          {
-            Serial.println("  \\Failed read");
+                data = sht.getRawTemperature() * (175.0 / 65535) - 45;
+
+                mes.data = data;
+
+                mes.time = millis() - dateRef;
+              }
+
+            } else {
+              data = sht.getRawTemperature() * (175.0 / 65535) - 45;
+
+              mes.data = data;
+
+              mes.time = millis() - dateRef;
+              Serial.println("   \\Data failed");
+              DynamicJsonDocument doc(1024);
+
+              doc["error"] = "temperature data is not ready";
+              serializeJson(doc, activeQuery);
+            }
+            shtCooldown == millis();
+            break;
           }
-          else
-          {
-
-            data = sht.getRawTemperature() * (175.0 / 65535) - 45;
-            mes.data = data;
-            mes.time = millis() - dateRef;
-          }
+        } else {
+          Serial.println("   \\Temperature sensor is not connected");
+          break;
         }
-        break;
       }
     case 2:
       {
-        Serial.println("   \\Humidity measurement..");
+        if (humSens) {
+
+          while (mes.data == -1) {
+            Serial.println("   \\Humidity measurement..");
 
 
-        if (sht.dataReady())
-        {
-          bool success  = sht.readData();
-          sht.requestData();
+            if (sht.dataReady())
+            {
+              bool success  = sht.readData();
+              sht.requestData();
 
-          if (success == false)
-          {
-            Serial.println("   \\Failed read");
-          }
-          else
-          {
-            data = sht.getRawHumidity() * (100.0 / 65535);
-            mes.data = data;
-            mes.time = millis() - dateRef;
+              if (success == false)
+              {
+                Serial.println("   \\Failed read");
+              }
+              else
+              {
+                data = sht.getRawHumidity() * (100.0 / 65535);
+                mes.data = data;
+                mes.time = millis() - dateRef;
 
 
+              }
+            } else {
+              data = sht.getRawHumidity() * (100.0 / 65535);
+              mes.data = data;
+              mes.time = millis() - dateRef;
+              Serial.println("   \\Data failed");
+            }
+            delay(1);
+            shtCooldown == millis();
+            break;
           }
         }
+        else {
+          Serial.println("   \\Humidity sensor is not connected");
+          break;
+        }
 
-        break;
       }
     case 5:
       {
@@ -238,10 +289,14 @@ void behavior::measure() {
         mes.data = data;
         mes.time = millis() - dateRef;
 
-
+        delay(1);
         break;
       }
   }
+
+
+
+
 
   if (activeBehaviors[timer].mode == 2 || activeBehaviors[timer].mode == 3) {
 
@@ -288,7 +343,9 @@ void behavior::measure() {
       Serial.print("   |Storing measure in databank ");
       Serial.print(dbIndex);
       Serial.print(" at index ");
-      Serial.println(indexes[dbIndex]);
+      Serial.print(indexes[dbIndex]);
+      Serial.print(", value is ");
+      Serial.println(mes.data);
       Serial.print("\n");
     } else {
 
@@ -300,7 +357,7 @@ void behavior::measure() {
   }
 
 
-measureStarted=false;
+  measureStarted = false;
 }
 
 
@@ -342,6 +399,15 @@ void behavior::ISinfo() {
 
   activeQuery.stop();
   Serial.println("End of query after JSON sending \n\n");
+
+  File i = LittleFS.open("activeBehaviors.txt", "r");
+  if (i) {
+    while (i.available()) {
+      Serial.write(i.read());
+    }
+    Serial.println("---------------");
+    i.close();
+  }
 }
 
 
@@ -373,6 +439,15 @@ void behavior::ISinfo() {
 
 
 
+
+DynamicJsonDocument fsAB_A(1024);
+DynamicJsonDocument fsAB_B(1024);
+DynamicJsonDocument fsAB_C(1024);
+DynamicJsonDocument fsAB_D(1024);
+
+DynamicJsonDocument fsAB_a(1024);
+DynamicJsonDocument fsAB_b(1024);
+
 void behavior::regularMeasure() {
 
 
@@ -397,7 +472,8 @@ void behavior::regularMeasure() {
     doc["error"] = "reading period is not specified";
     serializeJson(doc, activeQuery);
   } else if (activeCommand.readingPeriod * 1000 >= 1e6 && activeCommand.readingPeriod * 1000 <= 3600e6) {
-    Serial.println("Initialisation timer");
+
+    Serial.print("Timer initialisation ");
 
 
     if (activeCommand.id < 0) {
@@ -416,103 +492,204 @@ void behavior::regularMeasure() {
 
       doc["error"] = "no threshold specified";
       serializeJson(doc, activeQuery);
-    }else if(measureStarted){
-      DynamicJsonDocument doc(1024);
-
-      doc["error"] = "measure happened in the same time, please try again";
-      serializeJson(doc, activeQuery);
     }
     else {
 
-      if (activeCommand.mode != 3) {
-        for (int i = 0; i < 4; i++) {
-          if (indexes[i] < 0) {
-            activeCommand.databank = i + 1;
-            indexes[i]++;
-            break;
+
+
+
+      if (activeCommand.id > 2 || ((activeCommand.id == 1 && millis() - shtCooldown > 20 && sht.dataReady()) || (activeCommand.id == 2 && millis() - shtCooldown > 20 && sht.dataReady()))) {
+
+        for (int i = 0 ; i < activeBehaviors.size(); i++) {
+          if (activeBehaviors[i].timerStart > 0) {
+            int a = (millis() - activeBehaviors[i].timerStart) % activeBehaviors[i].readingPeriod;
+            if (a > activeBehaviors[i].readingPeriod - 15 || a < 15) {
+              readyToStartTimer = false;
+              break;
+            }
           }
+          readyToStartTimer = true;
         }
+
+        if (readyToStartTimer) {
+
+          if (activeCommand.mode != 3) {
+            for (int i = 0; i < 4; i++) {
+              if (indexes[i] < 0) {
+                activeCommand.databank = i + 1;
+                indexes[i]++;
+
+                break;
+              }
+            }
+          }
+
+          Serial.print("in databank ");
+          Serial.println(activeCommand.databank);
+
+          if (!timer0Used) {
+            if (ITimer0.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer0Handler)) {
+
+              Serial.println("Timer Start OK");
+              ITimer0.restartTimer();
+              t0date = millis();
+              timer0Used = true;
+              activeCommand.timer = 0;
+              lastBehavior = activeCommand;
+
+              activeBehaviors.push_back(activeCommand);
+
+
+              fsAB_A["mode"] = activeCommand.mode;
+              fsAB_A["id"] = activeCommand.id;
+              fsAB_A["timer"] = "0";
+              fsAB_A["readingPeriod"] = activeCommand.readingPeriod;
+
+              fsActiveBehaviors.push_back(&fsAB_A);
+              configurationSave();
+              /*
+                File f = LittleFS.open("activeBehaviors.txt", "w");
+                if (f) {
+
+                fsLittleBehavior["timer"] = "0";
+                Serial.println("ECRITURE");
+                serializeJson(fsLittleBehavior, f);
+                f.close();
+                }*/
+              DynamicJsonDocument doc(1024);
+              doc["status"] = "timer 1 started";
+              serializeJson(doc, activeQuery);
+
+            } else {
+              Serial.println("Failed to start timer");
+            }
+          }
+          else if (!timer1Used) {
+            if (ITimer1.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer1Handler)) {
+              Serial.println("Timer Start OK");
+              ITimer1.restartTimer();
+              t1date = millis();
+              timer1Used = true;
+              activeCommand.timer = 1;
+              lastBehavior = activeCommand;
+              activeBehaviors.push_back(activeCommand);
+              /*
+
+                            File f = LittleFS.open("activeBehaviors.txt", "w");
+                            if (f) {
+
+                              fsLittleBehavior["timer"] = "1";
+                              fsLittleBehavior["readingPeriod"]= readingPeriod;
+
+                              Serial.println("ECRITURE");
+                              serializeJson(fsLittleBehavior, f);
+                              f.close();
+                            }*/
+
+              fsAB_B["mode"] = activeCommand.mode;
+              fsAB_B["id"] = activeCommand.id;
+              fsAB_B["timer"] = "1";
+              fsAB_B["readingPeriod"] = activeCommand.readingPeriod;
+
+              fsActiveBehaviors.push_back(&fsAB_B);
+              configurationSave();
+
+
+              DynamicJsonDocument doc(1024);
+              doc["status"] = "timer 2 started";
+              serializeJson(doc, activeQuery);
+
+            } else {
+              Serial.println("Failed to start timer");
+            }
+          } else if (!timer2Used) {
+            if (ITimer2.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer2Handler)) {
+              Serial.println("Timer Start OK");
+              ITimer2.restartTimer();
+              t2date = millis();
+              timer2Used = true;
+              activeCommand.timer = 2;
+              lastBehavior = activeCommand;
+              activeBehaviors.push_back(activeCommand);
+
+
+              fsAB_C["mode"] = activeCommand.mode;
+              fsAB_C["id"] = activeCommand.id;
+              fsAB_C["timer"] = "2";
+              fsAB_C["readingPeriod"] = activeCommand.readingPeriod;
+
+              fsActiveBehaviors.push_back(&fsAB_C);
+              configurationSave();
+
+              /*   File f = LittleFS.open("activeBehaviors.txt", "w");
+                 if (f) {
+
+                   fsLittleBehavior["timer"] = "3";
+                   Serial.println("ECRITURE");
+                   serializeJson(fsLittleBehavior, f);
+                   f.close();
+                 }
+              */
+              DynamicJsonDocument doc(1024);
+              doc["status"] = "timer 3 started";
+              serializeJson(doc, activeQuery);
+
+            } else {
+              Serial.println("Failed to start timer");
+            }
+          } else if (!timer3Used) {
+            if (ITimer3.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer3Handler)) {
+              Serial.println("Timer Start OK");
+              ITimer3.restartTimer();
+              t3date = millis();
+              timer3Used = true;
+              activeCommand.timer = 3;
+              lastBehavior = activeCommand;
+              activeBehaviors.push_back(activeCommand);
+
+              txtActiveBehavior += "t=3\n";
+
+
+              fsAB_D["mode"] = activeCommand.mode;
+              fsAB_D["id"] = activeCommand.id;
+              fsAB_D["timer"] = "3";
+              fsAB_D["readingPeriod"] = activeCommand.readingPeriod;
+
+              fsActiveBehaviors.push_back(&fsAB_D);
+              configurationSave();
+              /*
+                            File f = LittleFS.open("activeBehaviors.txt", "w");
+                            if (f) {
+
+                              fsLittleBehavior["timer"] = "3";
+                              Serial.println("ECRITURE");
+                              serializeJson(fsLittleBehavior, f);
+                              f.close();
+                            }*/
+              DynamicJsonDocument doc(1024);
+              doc["status"] = "timer 4 started";
+              serializeJson(doc, activeQuery);
+
+            } else {
+              Serial.println("Failed to start timer");
+            }
+          }
+
+        } else {
+
+          Serial.println("\nOverlap (before)");
+          DynamicJsonDocument doc(1024);
+          doc["status"] = "timer could not start because of measure overlap (before). Please try again.";
+          serializeJson(doc, activeQuery);
+
+        }
+      } else {
+        Serial.println("\nOverlap (after)");
+        DynamicJsonDocument doc(1024);
+        doc["status"] = "timer could not start because of measure overlap (after). Please try again.";
+        serializeJson(doc, activeQuery);
       }
-
-
-
-      if (!timer0Used) {
-        if (ITimer0.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer0Handler)) {
-
-          Serial.println("Timer Start OK");
-          ITimer0.restartTimer();
-          t0date = millis();
-          timer0Used = true;
-          activeCommand.timer = 0;
-          lastBehavior = activeCommand;
-
-          activeBehaviors.push_back(activeCommand);
-
-
-          DynamicJsonDocument doc(1024);
-          doc["status"] = "timer 1 started";
-          serializeJson(doc, activeQuery);
-
-        } else {
-          Serial.println("Failed to start timer");
-        }
-      }
-      else if (!timer1Used) {
-        if (ITimer1.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer1Handler)) {
-          Serial.println("Timer Start OK");
-          ITimer1.restartTimer();
-          t1date = millis();
-          timer1Used = true;
-          activeCommand.timer = 1;
-          lastBehavior = activeCommand;
-          activeBehaviors.push_back(activeCommand);
-
-          DynamicJsonDocument doc(1024);
-          doc["status"] = "timer 2 started";
-          serializeJson(doc, activeQuery);
-
-        } else {
-          Serial.println("Failed to start timer");
-        }
-      } else if (!timer2Used) {
-        if (ITimer2.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer2Handler)) {
-          Serial.println("Timer Start OK");
-          ITimer2.restartTimer();
-          t2date = millis();
-          timer2Used = true;
-          activeCommand.timer = 2;
-          lastBehavior = activeCommand;
-          activeBehaviors.push_back(activeCommand);
-
-          DynamicJsonDocument doc(1024);
-          doc["status"] = "timer 3 started";
-          serializeJson(doc, activeQuery);
-
-        } else {
-          Serial.println("Failed to start timer");
-        }
-      } else if (!timer3Used) {
-        if (ITimer3.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer3Handler)) {
-          Serial.println("Timer Start OK");
-          ITimer3.restartTimer();
-          t3date = millis();
-          timer3Used = true;
-          activeCommand.timer = 3;
-          lastBehavior = activeCommand;
-          activeBehaviors.push_back(activeCommand);
-
-          DynamicJsonDocument doc(1024);
-          doc["status"] = "timer 4 started";
-          serializeJson(doc, activeQuery);
-
-        } else {
-          Serial.println("Failed to start timer");
-        }
-      }
-
     }
-
-
 
   } else {
     DynamicJsonDocument doc(1024);
@@ -523,6 +700,7 @@ void behavior::regularMeasure() {
 
   }
 
+  txtActiveBehavior = " ";
 }
 
 /*MODE 4 : DETECTION
@@ -580,27 +758,28 @@ void behavior::detectionAction() {
     Serial.println("DETECTION");
 
     //SEND ALERT
-    /*  if (activeQuery.connect(knownIP[0], 80)) {
-        Serial.println(knownIP[0]);
+    if (activeQuery.connect(knownIP[0], 80)) {
+      Serial.println(knownIP[0]);
 
-            HTTP Request sent to the server
+      // HTTP Request sent to the server
 
-                activeQuery.println(" HTTP/1.1");
-                activeQuery.println("Content-Type: text/html");
-                activeQuery.println("Connection: close");
-                // the connection will be closed after completion of the response
-                activeQuery.println();
-                activeQuery.println("<!DOCTYPE HTML>");
-                activeQuery.println("<html>");
+      activeQuery.println(" HTTP/1.1");
+      activeQuery.println("Content-Type: text/html");
+      activeQuery.println("Connection: close");
+      // the connection will be closed after completion of the response
+      activeQuery.println();
+      activeQuery.println("<!DOCTYPE HTML>");
+      activeQuery.println("<html>");
 
-                activeQuery.print("DEPASSEMENT");
-                activeQuery.println("<br />");
-                activeQuery.println("</html>");
-                delay(10);
+      activeQuery.print("DEPASSEMENT");
+
+      activeQuery.println("<br />");
+      activeQuery.println("</html>");
+      delay(10);
 
 
 
-      }*/
+    }
     /////////////////////////
 
 
@@ -657,6 +836,11 @@ void behavior::detection() {
         activeBehaviors.push_back(activeCommand);
 
 
+        fsAB_a["mode"] = activeCommand.mode;
+        fsAB_a["id"] = activeCommand.id;
+        fsActiveBehaviors.push_back(&fsAB_a);
+        configurationSave();
+
         DynamicJsonDocument doc(1024);
         doc["status"] = "interrupt A started";
         serializeJson(doc, activeQuery);
@@ -679,6 +863,11 @@ void behavior::detection() {
         lastBehavior = activeCommand;
 
         activeBehaviors.push_back(activeCommand);
+
+        fsAB_b["mode"] = activeCommand.mode;
+        fsAB_b["id"] = activeCommand.id;
+        fsActiveBehaviors.push_back(&fsAB_b);
+        configurationSave();
 
 
         DynamicJsonDocument doc(1024);
@@ -823,28 +1012,30 @@ void behavior::databankRead() {
 
   if (!(activeCommand.databank < 0)) {
 
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(65536);
 
-  
- 
-    
+
+
+
     for (int dataRead = 0; dataRead < indexes[activeCommand.databank - 1]; dataRead++) {
 
       Serial.println(databank[activeCommand.databank - 1][dataRead].data);
-        doc["data"][dataRead] = databank[activeCommand.databank - 1][dataRead].data;
+      doc["data"][dataRead] = databank[activeCommand.databank - 1][dataRead].time;
+
+
 
       databank[activeCommand.databank - 1][dataRead] = clearMes;
     }
 
-    indexes[activeCommand.databank - 1] = -1;
- 
-   
-   serializeJson(doc, activeQuery);
+    indexes[activeCommand.databank - 1] = -2;
 
-  /*  DynamicJsonDocument doc(1024);
 
-    doc["status"] = "data sent to server";
-    serializeJson(doc, activeQuery);*/
+    serializeJson(doc, activeQuery);
+
+    /*  DynamicJsonDocument doc(1024);
+
+      doc["status"] = "data sent to server";
+      serializeJson(doc,activeQuery);*/
 
     activeQuery.stop();
   } else {
@@ -895,10 +1086,9 @@ void behavior::measureReset() {
 
 
 
-
-
-
+      fsActiveBehaviors.clear();
       activeBehaviors.clear();
+      configurationSave();
     } else {
       switch (activeCommand.interrupt) {
 
@@ -907,6 +1097,11 @@ void behavior::measureReset() {
             ITimerX = &ITimer0;
             timInt = 0;
             timerXUsed = &timer0Used;
+
+            DynamicJsonDocument doc(1024);
+            doc["status"] = "timer 0 stopped";
+            serializeJson(doc, activeQuery);
+
             break;
           }
         case 2:
@@ -914,6 +1109,11 @@ void behavior::measureReset() {
             ITimerX = &ITimer1;
             timInt = 1;
             timerXUsed = &timer1Used;
+
+              DynamicJsonDocument doc(1024);
+            doc["status"] = "timer 0 stopped";
+            serializeJson(doc, activeQuery);
+            
             break;
           }
         case 3:
@@ -938,6 +1138,8 @@ void behavior::measureReset() {
               if (activeBehaviors[cmd].mode == 4) {
                 if (activeBehaviors[cmd].id == PIN_A) {
                   activeBehaviors.remove(cmd);
+                  fsActiveBehaviors.remove(cmd);
+                  configurationSave();
                 }
               }
             }
@@ -951,6 +1153,8 @@ void behavior::measureReset() {
               if (activeBehaviors[cmd].mode == 4) {
                 if (activeBehaviors[cmd].id == PIN_B) {
                   activeBehaviors.remove(cmd);
+                  fsActiveBehaviors.remove(cmd);
+                  configurationSave();
                 }
               }
             }
@@ -963,7 +1167,8 @@ void behavior::measureReset() {
           ITimerX->stopTimer();
           *timerXUsed = false;
           activeBehaviors.remove(cmd);
-
+          fsActiveBehaviors.remove(cmd);
+          configurationSave();
         }
 
       }
@@ -973,16 +1178,126 @@ void behavior::measureReset() {
   }
   else {
     DynamicJsonDocument doc(1024);
-
-    doc["error"] = "measure to stop is not specified";
+    int a = 2;
+    doc["error" + String(a)] = "measure to stop is not specified";
     serializeJson(doc, activeQuery);
 
   }
 }
 
 
+void behavior::checkPreviousConfiguration(struct Command* cmdA, struct Command* cmdB, struct Command* cmdC, struct Command* cmdD, struct Command* cmdE, struct Command* cmdF) {
+  String str;
+  File f = LittleFS.open("activeBehaviors.txt", "r");
+  DynamicJsonDocument savedConfiguration(8192);
+  if (f) {
+    /*while (f.available()) {
+      str += f.read();
+      Serial.println(str);
+      }*/
+    deserializeJson(savedConfiguration, f);
 
 
+
+
+
+    /*int mode=-1;
+      int id=-1;
+      int readingPeriod=-1;
+      int min=-1;
+      int max=-1;
+      int logicalLevel=-1;
+      int databank=-1;
+      int timer=-1;
+      int timerStart=-2;
+      int interrupt=-1;*/
+
+    cmdA->mode = savedConfiguration["command1"]["mode"];
+    cmdA->id = savedConfiguration["command1"]["id"];
+    cmdA->readingPeriod = savedConfiguration["command1"]["readingPeriod"];
+    cmdA->min = savedConfiguration["command1"]["min"];
+    cmdA->max = savedConfiguration["command1"]["max"];
+    cmdA->logicalLevel = savedConfiguration["command1"]["logicalLevel"];
+    cmdA->databank = savedConfiguration["command1"]["databank"];
+    cmdA->timer = savedConfiguration["command1"]["mode"];
+    cmdA->timerStart = savedConfiguration["command1"]["timerStart"];
+    cmdA->interrupt = savedConfiguration["command1"]["interrupt"];
+
+
+    cmdB->mode = savedConfiguration["command2"]["mode"];
+    cmdB->id = savedConfiguration["command2"]["id"];
+    cmdB->readingPeriod = savedConfiguration["command2"]["readingPeriod"];
+    cmdB->min = savedConfiguration["command2"]["min"];
+    cmdB->max = savedConfiguration["command2"]["max"];
+    cmdB->logicalLevel = savedConfiguration["command2"]["logicalLevel"];
+    cmdB->databank = savedConfiguration["command2"]["databank"];
+    cmdB->timer = savedConfiguration["command2"]["mode"];
+    cmdB->timerStart = savedConfiguration["command2"]["timerStart"];
+    cmdB->interrupt = savedConfiguration["command2"]["interrupt"];
+
+    cmdC->mode = savedConfiguration["command3"]["mode"];
+    cmdC->id = savedConfiguration["command3"]["id"];
+    cmdC->readingPeriod = savedConfiguration["command3"]["readingPeriod"];
+    cmdC->min = savedConfiguration["command3"]["min"];
+    cmdC->max = savedConfiguration["command3"]["max"];
+    cmdC->logicalLevel = savedConfiguration["command3"]["logicalLevel"];
+    cmdC->databank = savedConfiguration["command3"]["databank"];
+    cmdC->timer = savedConfiguration["command3"]["mode"];
+    cmdC->timerStart = savedConfiguration["command3"]["timerStart"];
+    cmdC->interrupt = savedConfiguration["command3"]["interrupt"];
+
+    cmdD->mode = savedConfiguration["command4"]["mode"];
+    cmdD->id = savedConfiguration["command4"]["id"];
+    cmdD->readingPeriod = savedConfiguration["command4"]["readingPeriod"];
+    cmdD->min = savedConfiguration["command4"]["min"];
+    cmdD->max = savedConfiguration["command4"]["max"];
+    cmdD->logicalLevel = savedConfiguration["command4"]["logicalLevel"];
+    cmdD->databank = savedConfiguration["command4"]["databank"];
+    cmdD->timer = savedConfiguration["command4"]["mode"];
+    cmdD->timerStart = savedConfiguration["command4"]["timerStart"];
+    cmdD->interrupt = savedConfiguration["command4"]["interrupt"];
+
+    cmdE->mode = savedConfiguration["command5"]["mode"];
+    cmdE->id = savedConfiguration["command5"]["id"];
+    cmdE->readingPeriod = savedConfiguration["command5"]["readingPeriod"];
+    cmdE->min = savedConfiguration["command5"]["min"];
+    cmdE->max = savedConfiguration["command5"]["max"];
+    cmdE->logicalLevel = savedConfiguration["command5"]["logicalLevel"];
+    cmdE->databank = savedConfiguration["command5"]["databank"];
+    cmdE->timer = savedConfiguration["command5"]["mode"];
+    cmdE->timerStart = savedConfiguration["command5"]["timerStart"];
+    cmdE->interrupt = savedConfiguration["command5"]["interrupt"];
+
+    cmdF->mode = savedConfiguration["command6"]["mode"];
+    cmdF->id = savedConfiguration["command6"]["id"];
+    cmdF->readingPeriod = savedConfiguration["command6"]["readingPeriod"];
+    cmdF->min = savedConfiguration["command6"]["min"];
+    cmdF->max = savedConfiguration["command6"]["max"];
+    cmdF->logicalLevel = savedConfiguration["command6"]["logicalLevel"];
+    cmdF->databank = savedConfiguration["command6"]["databank"];
+    cmdF->timer = savedConfiguration["command6"]["mode"];
+    cmdF->timerStart = savedConfiguration["command6"]["timerStart"];
+    cmdF->interrupt = savedConfiguration["command6"]["interrupt"];
+
+    Serial.println("---------------");
+    f.close();
+  }
+}
+
+
+void behavior::configurationSave() {
+  int i = 0;
+  LittleFS.remove("activeBehaviors.txt");
+  File f = LittleFS.open("activeBehaviors.txt", "w");
+  DynamicJsonDocument configurationToSave(8192);
+
+  for (DynamicJsonDocument *fsAB : fsActiveBehaviors) {
+    i++;
+    configurationToSave["command" + String(i)] = *fsAB;
+  }
+  serializeJson(configurationToSave, f);
+  f.close();
+}
 
 
 
@@ -1010,24 +1325,28 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query, Eth
       case 1:
         {
           Serial.print(">Selected mode: ");
+          txtActiveBehavior += "m=1";
           regularMeasure();
           break;
         }
       case 2:
         {
           Serial.print(">Selected mode: ");
+          txtActiveBehavior += "m=2";
           regularMeasure();
           break;
         }
       case 3:
         {
           Serial.print(">Selected mode: ");
+          txtActiveBehavior += "m=3";
           regularMeasure();
           break;
         }
       case 4:
         {
           Serial.print(">Selected mode: ");
+          txtActiveBehavior += "m=4";
           detection();
           break;
         }

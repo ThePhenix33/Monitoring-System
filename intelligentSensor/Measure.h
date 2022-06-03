@@ -20,7 +20,7 @@
 struct Measure{
 
 float data=-1;
-unsigned short time=-1;
+unsigned long time=-1;
 
 };
 

@@ -19,13 +19,27 @@
 ISnetwork network;
 behavior behavior;
 
+struct Command cmdA,cmdB,cmdC,cmdD,cmdE,cmdF;
 
 void setup() {
-  
+  LittleFS.begin();
   pinMode(15, OUTPUT);
+
+ 
+  //Check for previous configuration
   network.networkSetup();
   behavior.sensorSetup();
- 
+  delay(2000);
+  behavior.checkPreviousConfiguration(&cmdA,&cmdB,&cmdC,&cmdD,&cmdE,&cmdF);
+if(cmdA.mode!=-1) {
+  Serial.println(cmdA.mode);
+  behavior.behaviorHandler(cmdA, network.userQuery, network.client);
+}
+delay(30);
+if(cmdB.mode!=-1) {
+  Serial.println(cmdB.mode);
+  behavior.behaviorHandler(cmdB, network.userQuery, network.client);
+}
 }
 
 void loop() {
