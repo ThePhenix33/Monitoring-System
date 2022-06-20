@@ -49,6 +49,7 @@ class behavior  {
   public:
   
   
+  
     static void measure();
     static bool timer0Handler(struct repeating_timer *t);
     static bool timer1Handler(struct repeating_timer *t);
@@ -79,6 +80,8 @@ class behavior  {
     void regularMeasure();
     void measureReset();
     void databankRead();
+    
+    static void JSONResponse(DynamicJsonDocument);
     void configurationSave();
     void checkPreviousConfiguration(struct Command*,struct Command*,struct Command*,struct Command*,struct Command*,struct Command*);
     
@@ -122,4 +125,6 @@ static RPI_PICO_Timer ITimer3(3);
 static int shtCooldown;
 static bool irAused = 0, irBused = 0;
 static bool itA = 0, itB = 0;
+
+static char Http_xHeader[] = "HTTP/1.1 200 OK \nContent-Type: application/json \nAccess-Control-Allow-Origin: * \nServer: Custom PICO \n";
 #endif

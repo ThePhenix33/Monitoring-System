@@ -230,7 +230,7 @@ void behavior::measure() {
               DynamicJsonDocument doc(1024);
 
               doc["error"] = "temperature data is not ready";
-              serializeJson(doc, activeQuery);
+              JSONResponse(doc);
             }
             shtCooldown == millis();
             break;
@@ -395,19 +395,11 @@ void behavior::ISinfo() {
   doc["lastBehavior"]["sensor"] = lastBehavior.id;
   doc["lastBehavior"]["period"] = lastBehavior.readingPeriod;
 
-  serializeJson(doc, activeQuery);
+  JSONResponse(doc);
 
   activeQuery.stop();
   Serial.println("End of query after JSON sending \n\n");
 
-  File i = LittleFS.open("activeBehaviors.txt", "r");
-  if (i) {
-    while (i.available()) {
-      Serial.write(i.read());
-    }
-    Serial.println("---------------");
-    i.close();
-  }
 }
 
 
@@ -470,7 +462,7 @@ void behavior::regularMeasure() {
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "reading period is not specified";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
   } else if (activeCommand.readingPeriod * 1000 >= 1e6 && activeCommand.readingPeriod * 1000 <= 3600e6) {
 
     Serial.print("Timer initialisation ");
@@ -480,18 +472,18 @@ void behavior::regularMeasure() {
       DynamicJsonDocument doc(1024);
 
       doc["error"] = "sensor id is not specified";
-      serializeJson(doc, activeQuery);
+      JSONResponse(doc);
 
     } else  if (indexes[0] > 0 && indexes[1] > 0 && indexes[2] > 0 && indexes[3] > 0) {
       DynamicJsonDocument doc(1024);
 
       doc["error"] = "no databank available";
-      serializeJson(doc, activeQuery);
+      JSONResponse(doc);
     } else if ((activeCommand.mode == 2 && activeCommand.min == -1 && activeCommand.max == -1) || (activeCommand.mode == 3 && activeCommand.min == -1 && activeCommand.max == -1)) {
       DynamicJsonDocument doc(1024);
 
       doc["error"] = "no threshold specified";
-      serializeJson(doc, activeQuery);
+      JSONResponse(doc);
     }
     else {
 
@@ -546,7 +538,7 @@ void behavior::regularMeasure() {
               fsAB_A["readingPeriod"] = activeCommand.readingPeriod;
 
               fsActiveBehaviors.push_back(&fsAB_A);
-              configurationSave();
+              ////configurationSave();
               /*
                 File f = LittleFS.open("activeBehaviors.txt", "w");
                 if (f) {
@@ -558,7 +550,7 @@ void behavior::regularMeasure() {
                 }*/
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 1 started";
-              serializeJson(doc, activeQuery);
+              JSONResponse(doc);
 
             } else {
               Serial.println("Failed to start timer");
@@ -592,12 +584,12 @@ void behavior::regularMeasure() {
               fsAB_B["readingPeriod"] = activeCommand.readingPeriod;
 
               fsActiveBehaviors.push_back(&fsAB_B);
-              configurationSave();
+              //configurationSave();
 
 
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 2 started";
-              serializeJson(doc, activeQuery);
+              JSONResponse(doc);
 
             } else {
               Serial.println("Failed to start timer");
@@ -619,7 +611,7 @@ void behavior::regularMeasure() {
               fsAB_C["readingPeriod"] = activeCommand.readingPeriod;
 
               fsActiveBehaviors.push_back(&fsAB_C);
-              configurationSave();
+              //configurationSave();
 
               /*   File f = LittleFS.open("activeBehaviors.txt", "w");
                  if (f) {
@@ -632,7 +624,7 @@ void behavior::regularMeasure() {
               */
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 3 started";
-              serializeJson(doc, activeQuery);
+              JSONResponse(doc);
 
             } else {
               Serial.println("Failed to start timer");
@@ -656,7 +648,7 @@ void behavior::regularMeasure() {
               fsAB_D["readingPeriod"] = activeCommand.readingPeriod;
 
               fsActiveBehaviors.push_back(&fsAB_D);
-              configurationSave();
+              //configurationSave();
               /*
                             File f = LittleFS.open("activeBehaviors.txt", "w");
                             if (f) {
@@ -668,7 +660,7 @@ void behavior::regularMeasure() {
                             }*/
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 4 started";
-              serializeJson(doc, activeQuery);
+              JSONResponse(doc);
 
             } else {
               Serial.println("Failed to start timer");
@@ -680,14 +672,14 @@ void behavior::regularMeasure() {
           Serial.println("\nOverlap (before)");
           DynamicJsonDocument doc(1024);
           doc["status"] = "timer could not start because of measure overlap (before). Please try again.";
-          serializeJson(doc, activeQuery);
+          JSONResponse(doc);
 
         }
       } else {
         Serial.println("\nOverlap (after)");
         DynamicJsonDocument doc(1024);
         doc["status"] = "timer could not start because of measure overlap (after). Please try again.";
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
       }
     }
 
@@ -695,7 +687,7 @@ void behavior::regularMeasure() {
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "reading period is out of bonds";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
 
 
   }
@@ -821,7 +813,7 @@ void behavior::detection() {
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "sensor id is not specified";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
   } else if (activeCommand.id == PIN_A || activeCommand.id == PIN_B) {
 
 
@@ -839,11 +831,11 @@ void behavior::detection() {
         fsAB_a["mode"] = activeCommand.mode;
         fsAB_a["id"] = activeCommand.id;
         fsActiveBehaviors.push_back(&fsAB_a);
-        configurationSave();
+        //configurationSave();
 
         DynamicJsonDocument doc(1024);
         doc["status"] = "interrupt A started";
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
 
         Serial.println("Interrupt set on sensor ");
         Serial.println(activeCommand.id);
@@ -852,7 +844,7 @@ void behavior::detection() {
         DynamicJsonDocument doc(1024);
 
         doc["error"] = "interrupt on pin A already started";
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
       }
     } else if (activeCommand.id == PIN_B ) {
       if (!irBused) {
@@ -867,12 +859,12 @@ void behavior::detection() {
         fsAB_b["mode"] = activeCommand.mode;
         fsAB_b["id"] = activeCommand.id;
         fsActiveBehaviors.push_back(&fsAB_b);
-        configurationSave();
+        //configurationSave();
 
 
         DynamicJsonDocument doc(1024);
         doc["status"] = "interrupt B started";
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
 
         Serial.println("Interrupt set on sensor ");
         Serial.println(activeCommand.id);
@@ -882,7 +874,7 @@ void behavior::detection() {
       } else {
         DynamicJsonDocument doc(1024);
         doc["error"] = "interrupt on pin 4 already started";
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
       }
 
     }
@@ -890,7 +882,7 @@ void behavior::detection() {
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "sensor id is not compatible with mode 4";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
   }
 }
 /*MODE 9 : UNITARY MEASURE
@@ -931,7 +923,7 @@ void behavior::unitaryMeasure() {
           }
         }
         Serial.println(" >Data sent!");
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
 
 
         activeQuery.stop();
@@ -966,7 +958,7 @@ void behavior::unitaryMeasure() {
         }
 
         Serial.println(" >Data sent!");
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
 
 
         activeQuery.stop();
@@ -984,7 +976,7 @@ void behavior::unitaryMeasure() {
         doc["measure"] = "voltage";
         doc["data"] = analogRead(27);
         Serial.println(" >Data sent!");
-        serializeJson(doc, activeQuery);
+        JSONResponse(doc);
 
         activeQuery.stop();
         Serial.println("End of query after JSON sending \n\n");
@@ -1030,7 +1022,7 @@ void behavior::databankRead() {
     indexes[activeCommand.databank - 1] = -2;
 
 
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
 
     /*  DynamicJsonDocument doc(1024);
 
@@ -1042,7 +1034,7 @@ void behavior::databankRead() {
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "databank is not specified";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
 
   }
 }
@@ -1088,7 +1080,7 @@ void behavior::measureReset() {
 
       fsActiveBehaviors.clear();
       activeBehaviors.clear();
-      configurationSave();
+      //configurationSave();
     } else {
       switch (activeCommand.interrupt) {
 
@@ -1100,7 +1092,7 @@ void behavior::measureReset() {
 
             DynamicJsonDocument doc(1024);
             doc["status"] = "timer 0 stopped";
-            serializeJson(doc, activeQuery);
+            JSONResponse(doc);
 
             break;
           }
@@ -1112,7 +1104,7 @@ void behavior::measureReset() {
 
               DynamicJsonDocument doc(1024);
             doc["status"] = "timer 0 stopped";
-            serializeJson(doc, activeQuery);
+            JSONResponse(doc);
             
             break;
           }
@@ -1139,7 +1131,7 @@ void behavior::measureReset() {
                 if (activeBehaviors[cmd].id == PIN_A) {
                   activeBehaviors.remove(cmd);
                   fsActiveBehaviors.remove(cmd);
-                  configurationSave();
+                  //configurationSave();
                 }
               }
             }
@@ -1154,7 +1146,7 @@ void behavior::measureReset() {
                 if (activeBehaviors[cmd].id == PIN_B) {
                   activeBehaviors.remove(cmd);
                   fsActiveBehaviors.remove(cmd);
-                  configurationSave();
+                  //configurationSave();
                 }
               }
             }
@@ -1168,7 +1160,7 @@ void behavior::measureReset() {
           *timerXUsed = false;
           activeBehaviors.remove(cmd);
           fsActiveBehaviors.remove(cmd);
-          configurationSave();
+          //configurationSave();
         }
 
       }
@@ -1180,7 +1172,7 @@ void behavior::measureReset() {
     DynamicJsonDocument doc(1024);
     int a = 2;
     doc["error" + String(a)] = "measure to stop is not specified";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
 
   }
 }
@@ -1300,7 +1292,12 @@ void behavior::configurationSave() {
 }
 
 
-
+void behavior::JSONResponse(DynamicJsonDocument resp){
+ 
+  activeQuery.println(Http_xHeader);
+  serializeJson(resp,activeQuery);
+   activeQuery.stop();
+}
 
 void behavior::behaviorHandler(struct Command command, EthernetClient query, EthernetClient client) {
 
@@ -1374,7 +1371,7 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query, Eth
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "mode is not specified";
-    serializeJson(doc, activeQuery);
+    JSONResponse(doc);
 
   }
 }
