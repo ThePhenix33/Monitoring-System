@@ -216,8 +216,10 @@ void behavior::measure() {
                 data = sht.getRawTemperature() * (175.0 / 65535) - 45;
 
                 mes.data = data;
-
+                Serial.println(mes.data);
                 mes.time = millis() - dateRef;
+                Serial.println(activeBehaviors[timer].id);
+                break;
               }
 
             } else {
@@ -233,12 +235,14 @@ void behavior::measure() {
               JSONResponse(doc);
             }
             shtCooldown == millis();
+            Serial.println(activeBehaviors[timer].id);
             break;
           }
         } else {
           Serial.println("   \\Temperature sensor is not connected");
           break;
         }
+        break;
       }
     case 2:
       {
@@ -281,9 +285,13 @@ void behavior::measure() {
           break;
         }
 
+
+        Serial.println(activeBehaviors[timer].id);
+        break;
       }
     case 5:
       {
+      
         Serial.println("   \\ADC measurement..");
         data = analogRead(27);
         mes.data = data;
@@ -1012,8 +1020,8 @@ void behavior::databankRead() {
     for (int dataRead = 0; dataRead < indexes[activeCommand.databank - 1]; dataRead++) {
 
       Serial.println(databank[activeCommand.databank - 1][dataRead].data);
-      doc["data"][dataRead] = databank[activeCommand.databank - 1][dataRead].time;
-
+      doc["data"][dataRead] = databank[activeCommand.databank - 1][dataRead].data;
+      doc["time"][dataRead] = databank[activeCommand.databank - 1][dataRead].time;
 
 
       databank[activeCommand.databank - 1][dataRead] = clearMes;
@@ -1021,16 +1029,19 @@ void behavior::databankRead() {
 
     indexes[activeCommand.databank - 1] = -2;
 
+    serializeJson(doc, activeQuery);
 
-    JSONResponse(doc);
+    activeQuery.stop();
+
+    // JSONResponse(doc);
 
     /*  DynamicJsonDocument doc(1024);
 
       doc["status"] = "data sent to server";
       serializeJson(doc,activeQuery);*/
 
-    activeQuery.stop();
   } else {
+
     DynamicJsonDocument doc(1024);
 
     doc["error"] = "databank is not specified";
@@ -1102,10 +1113,10 @@ void behavior::measureReset() {
             timInt = 1;
             timerXUsed = &timer1Used;
 
-              DynamicJsonDocument doc(1024);
-            doc["status"] = "timer 0 stopped";
+            DynamicJsonDocument doc(1024);
+            doc["status"] = "timer 1 stopped";
             JSONResponse(doc);
-            
+
             break;
           }
         case 3:
@@ -1113,6 +1124,10 @@ void behavior::measureReset() {
             ITimerX = &ITimer2;
             timInt = 2;
             timerXUsed = &timer2Used;
+
+            DynamicJsonDocument doc(1024);
+            doc["status"] = "timer 2 stopped";
+            JSONResponse(doc);
             break;
           }
         case 4:
@@ -1120,6 +1135,10 @@ void behavior::measureReset() {
             ITimerX = &ITimer3;
             timInt = 3;
             timerXUsed = &timer3Used;
+
+            DynamicJsonDocument doc(1024);
+            doc["status"] = "timer 3 stopped";
+            JSONResponse(doc);
             break;
           }
         case 5:
@@ -1292,11 +1311,11 @@ void behavior::configurationSave() {
 }
 
 
-void behavior::JSONResponse(DynamicJsonDocument resp){
- 
+void behavior::JSONResponse(DynamicJsonDocument resp) {
   activeQuery.println(Http_xHeader);
-  serializeJson(resp,activeQuery);
-   activeQuery.stop();
+  serializeJson(resp, activeQuery);
+  delay(10);
+  activeQuery.stop();
 }
 
 void behavior::behaviorHandler(struct Command command, EthernetClient query, EthernetClient client) {

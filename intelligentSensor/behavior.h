@@ -96,7 +96,7 @@ static bool measureStarted;
 static EthernetClient activeClient;
 static EthernetClient activeQuery;
 
-static bool tempSens=false, humSens=false;
+static bool tempSens=true, humSens=1;
 
 static IPAddress knownIP[10];
 
