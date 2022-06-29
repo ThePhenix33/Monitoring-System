@@ -8,6 +8,8 @@
    the data is sent in JSON format through an Ethernet connection.
 
    Works on Wiznet W5100S-EVB-Pico
+
+   
 */
 
 
@@ -30,7 +32,9 @@ void setup() {
   network.networkSetup();
   behavior.sensorSetup();
   delay(2000);
- /* behavior.checkPreviousConfiguration(&cmdA,&cmdB,&cmdC,&cmdD,&cmdE,&cmdF);
+  
+  behavior.checkPreviousConfiguration(&cmdA,&cmdB,&cmdC,&cmdD,&cmdE,&cmdF);
+  
 if(cmdA.mode!=-1) {
   Serial.println(cmdA.mode);
   behavior.behaviorHandler(cmdA, network.userQuery, network.client);
@@ -39,7 +43,28 @@ delay(30);
 if(cmdB.mode!=-1) {
   Serial.println(cmdB.mode);
   behavior.behaviorHandler(cmdB, network.userQuery, network.client);
-}*/
+}
+delay(30);
+if(cmdC.mode!=-1) {
+  Serial.println(cmdC.mode);
+  behavior.behaviorHandler(cmdC, network.userQuery, network.client);
+}
+delay(30);
+if(cmdD.mode!=-1) {
+  Serial.println(cmdD.mode);
+  behavior.behaviorHandler(cmdD, network.userQuery, network.client);
+}
+delay(30);
+if(cmdE.mode!=-1) {
+  Serial.println(cmdE.mode);
+  behavior.behaviorHandler(cmdE, network.userQuery, network.client);
+}
+delay(30);
+if(cmdF.mode!=-1) {
+  Serial.println(cmdF.mode);
+  behavior.behaviorHandler(cmdF, network.userQuery, network.client);
+}
+
 }
 
 void loop() {

@@ -28,6 +28,9 @@ int databank=-1;
 int timer=-1;
 int timerStart=-2;
 int interrupt=-1;
+int flagReset=0;
+int flagMin = 0;
+int flagMax = 0;
 };
 
 #endif

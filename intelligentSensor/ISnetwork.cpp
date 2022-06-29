@@ -6,7 +6,7 @@
    Handle the Intelligent Sensor network aspect,
    from connecting to the global network to handle
    HTTP requests.
-  
+
 */
 
 
@@ -20,14 +20,14 @@
 
 //00-22-8F-10-A0-03
 byte mac[] = {
-   0x00, 0x22, 0x8F, 0x10, 0xA0, 0x04
+  0x00, 0x22, 0x8F, 0x10, 0xA0, 0x04
 };
 
 
 //HTTP protocol needs port 80
 EthernetServer server(80);
 
-EthernetClient userQuery,client;
+EthernetClient userQuery, client;
 
 int ISnetwork::networkCheck() {
 
@@ -80,8 +80,8 @@ void ISnetwork::networkSetup() {
 
   //At this point the IS is connected to the network
 
- // IPAddress gateway(192, 168, 10, 1); //Only for local switch network
- // Ethernet.setGatewayIP(gateway);
+  // IPAddress gateway(192, 168, 10, 1); //Only for local switch network
+  // Ethernet.setGatewayIP(gateway);
   Serial.print("My IP address: ");
   Serial.println(Ethernet.localIP());
   Serial.print("My gateway address: ");
@@ -187,6 +187,10 @@ struct Command ISnetwork::queryAK() {
           if (((String)qParam).equals("I")) {
             requestedCommand.interrupt = ((String)qValue).toInt();
             Serial.println("   \\INTERRUPT value set");
+          }
+          if (((String)qParam).equals("D")) {
+            requestedCommand.flagReset = ((String)qValue).toInt();
+            Serial.println("   \\FLAG RESET value set");
           }
 
 

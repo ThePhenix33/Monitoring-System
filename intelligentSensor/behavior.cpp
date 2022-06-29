@@ -270,9 +270,7 @@ void behavior::measure() {
 
               }
             } else {
-              data = sht.getRawHumidity() * (100.0 / 65535);
-              mes.data = data;
-              mes.time = millis() - dateRef;
+
               Serial.println("   \\Data failed");
             }
             delay(1);
@@ -291,7 +289,7 @@ void behavior::measure() {
       }
     case 5:
       {
-      
+
         Serial.println("   \\ADC measurement..");
         data = analogRead(27);
         mes.data = data;
@@ -308,37 +306,52 @@ void behavior::measure() {
 
   if (activeBehaviors[timer].mode == 2 || activeBehaviors[timer].mode == 3) {
 
-    if (data < activeBehaviors[timer].min || data > activeBehaviors[timer].max) {
-      Serial.print("   |Sensor ");
-      Serial.print(activeBehaviors[timer].id);
-      Serial.println(" has threshold reached");
+    if (data < activeBehaviors[timer].min ) {
+      if (!activeBehaviors[timer].flagMin) {
 
+        Serial.print("   |Sensor ");
+        Serial.print(activeBehaviors[timer].id);
+        Serial.println(" has MINIMUM threshold reached");
+        activeBehaviors[timer].flagMin = 1;
 
+        //SEND ALERT
+        /* String Sensor_id = (String)activeBehaviors[timer].id;
       //SEND ALERT
-      /*  if (activeQuery.connect(knownIP[0], 80)) {
-          Serial.println(knownIP[0]);
+      Serial.println(knownIP[0]);
+      String Type="GET";
+      String Http_Level="HTTP/1.1";
+      //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
+      String URL_Body_sh="/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID="+Sensor_id+"&data="+data;
+      String FullReqURL=Type+" "+URL_Body_sh+" "+Http_Level;
+        if (activeQuery.connect(knownIP[0], 80)) {    
+//             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
+            activeQuery.println(FullReqURL);
+//             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
+//             activeQuery.println("Host: perdu.com");
+             activeQuery.print("Host: ");
+            activeQuery.println(knownIP[0]);
+            activeQuery.println("Connection: close");
+            activeQuery.println();
+                              delay(1000);
+            activeQuery.stop();
+            Serial.println(" Query sended !?");
+            Serial.print("Host: ");
+            Serial.println(knownIP[0]);
+            }*/
+        /////////////////////////
+      }
+    } else if ( data > activeBehaviors[timer].max) {
+      if (!activeBehaviors[timer].flagMax) {
+        Serial.print("   |Sensor ");
+        Serial.print(activeBehaviors[timer].id);
+        Serial.println(" has MAXIMUM threshold reached");
 
-              HTTP Request sent to the server
+        activeBehaviors[timer].flagMax = 1;
+      }
 
-                  activeQuery.println(" HTTP/1.1");
-                  activeQuery.println("Content-Type: text/html");
-                  activeQuery.println("Connection: close");
-                  // the connection will be closed after completion of the response
-                  activeQuery.println();
-                  activeQuery.println("<!DOCTYPE HTML>");
-                  activeQuery.println("<html>");
-
-                  activeQuery.print("DEPASSEMENT");
-                  activeQuery.println("<br />");
-                  activeQuery.println("</html>");
-                  delay(10);
+    } 
 
 
-
-        }*/
-      /////////////////////////
-
-    }
   }
 
   if (activeBehaviors[timer].mode != 3)
@@ -396,6 +409,7 @@ void behavior::ISinfo() {
     doc["activeBehaviors"][ab]["minimum"] = activeBehaviors[ab].min;
     doc["activeBehaviors"][ab]["databank"] = activeBehaviors[ab].databank;
     doc["activeBehaviors"][ab]["timer"] = activeBehaviors[ab].timer + 1;
+    doc["activeBehaviors"][ab]["flag"] = activeBehaviors[ab].flagMax || activeBehaviors[ab].flagMin;
   }
 
 
@@ -498,7 +512,9 @@ void behavior::regularMeasure() {
 
 
 
-      if (activeCommand.id > 2 || ((activeCommand.id == 1 && millis() - shtCooldown > 20 && sht.dataReady()) || (activeCommand.id == 2 && millis() - shtCooldown > 20 && sht.dataReady()))) {
+      if (activeCommand.id > 2 ||
+          ((activeCommand.id == 1 && millis() - shtCooldown > 20 && sht.dataReady()) ||
+           (activeCommand.id == 2 && millis() - shtCooldown > 20 && sht.dataReady()))) {
 
         for (int i = 0 ; i < activeBehaviors.size(); i++) {
           if (activeBehaviors[i].timerStart > 0) {
@@ -544,6 +560,8 @@ void behavior::regularMeasure() {
               fsAB_A["id"] = activeCommand.id;
               fsAB_A["timer"] = "0";
               fsAB_A["readingPeriod"] = activeCommand.readingPeriod;
+              fsAB_A["min"] = activeCommand.min;
+              fsAB_A["max"] = activeCommand.max;
 
               fsActiveBehaviors.push_back(&fsAB_A);
               ////configurationSave();
@@ -1091,8 +1109,10 @@ void behavior::measureReset() {
 
       fsActiveBehaviors.clear();
       activeBehaviors.clear();
-      //configurationSave();
+      configurationSave();
+      
     } else {
+ DynamicJsonDocument doc(1024);
       switch (activeCommand.interrupt) {
 
         case 1:
@@ -1101,9 +1121,9 @@ void behavior::measureReset() {
             timInt = 0;
             timerXUsed = &timer0Used;
 
-            DynamicJsonDocument doc(1024);
+           
             doc["status"] = "timer 0 stopped";
-            JSONResponse(doc);
+         
 
             break;
           }
@@ -1113,9 +1133,9 @@ void behavior::measureReset() {
             timInt = 1;
             timerXUsed = &timer1Used;
 
-            DynamicJsonDocument doc(1024);
+           
             doc["status"] = "timer 1 stopped";
-            JSONResponse(doc);
+
 
             break;
           }
@@ -1125,9 +1145,8 @@ void behavior::measureReset() {
             timInt = 2;
             timerXUsed = &timer2Used;
 
-            DynamicJsonDocument doc(1024);
             doc["status"] = "timer 2 stopped";
-            JSONResponse(doc);
+   
             break;
           }
         case 4:
@@ -1136,9 +1155,9 @@ void behavior::measureReset() {
             timInt = 3;
             timerXUsed = &timer3Used;
 
-            DynamicJsonDocument doc(1024);
+          
             doc["status"] = "timer 3 stopped";
-            JSONResponse(doc);
+        
             break;
           }
         case 5:
@@ -1175,11 +1194,25 @@ void behavior::measureReset() {
 
       for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
         if (activeBehaviors[cmd].timer == timInt) {
-          ITimerX->stopTimer();
-          *timerXUsed = false;
-          activeBehaviors.remove(cmd);
-          fsActiveBehaviors.remove(cmd);
-          //configurationSave();
+          if (activeCommand.flagReset==1) {
+            activeBehaviors[cmd].flagMax = 0;
+            activeBehaviors[cmd].flagMin = 0;
+       
+
+            doc["status"] = "flag reset";
+            JSONResponse(doc);
+            
+          } else {
+          
+                JSONResponse(doc);
+            ITimerX->stopTimer();
+            *timerXUsed = false;
+            activeBehaviors.remove(cmd);
+            fsActiveBehaviors.remove(cmd);
+            activeBehaviors[cmd].flagMax = 0;
+            activeBehaviors[cmd].flagMin = 0;
+            configurationSave();
+          }
         }
 
       }
