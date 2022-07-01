@@ -6,7 +6,7 @@
   Lists all the modes provided by the
   Intelligent Sensor, and handle the behavior
   it should have depending on the selected mode.
-  
+
 */
 
 #ifndef behavior_H
@@ -24,6 +24,7 @@
 #include <LittleFS.h>
 #include "Sensor.h"
 
+#define versionID "8"
 
 #define TIMER_INTERRUPT_DEBUG         1
 #define _TIMERINTERRUPT_LOGLEVEL_     4
@@ -42,14 +43,14 @@ static const short databankSize = 3600;
 class behavior  {
 
   private:
-  
-#define PIN_A 12
-#define PIN_B 13
+
+#define PIN_A 14
+#define PIN_B 15
 
   public:
-  
-  
-  
+
+
+
     static void measure();
     static bool timer0Handler(struct repeating_timer *t);
     static bool timer1Handler(struct repeating_timer *t);
@@ -80,11 +81,24 @@ class behavior  {
     void regularMeasure();
     void measureReset();
     void databankRead();
-    
+
     static void JSONResponse(DynamicJsonDocument);
     void configurationSave();
-    void checkPreviousConfiguration(struct Command*,struct Command*,struct Command*,struct Command*,struct Command*,struct Command*);
-    
+    void checkPreviousConfiguration(struct Command*, struct Command*, struct Command*, struct Command*, struct Command*, struct Command*);
+
+
+
+    static bool isAnAlertMode(int mode);
+
+
+    static bool dataStorageNeeded(int mode);
+
+    static bool readingPeriodInRange(long min, long max);
+
+    static bool allDatabankFull();
+
+    static bool noThreshold();
+    static bool sensorCooldownWaited();
     //128716 (4 tableaux)
     //157516 (5 tableaux)
 };
@@ -96,7 +110,7 @@ static bool measureStarted;
 static EthernetClient activeClient;
 static EthernetClient activeQuery;
 
-static bool tempSens=true, humSens=1;
+static bool tempSens = 0, humSens = 0;
 
 static IPAddress knownIP[10];
 
@@ -111,10 +125,10 @@ static int activeBehaviorsCount;
 
 static bool timer0Used = 0, timer1Used = 0, timer2Used = 0, timer3Used = 0;
 
-static bool readyToStartTimer=true;
+static bool readyToStartTimer = true;
 
 
-static int startA,startB;
+static int startA, startB;
 static int t0date, t1date, t2date, t3date;
 static int selTim;
 static bool tim0 = 0, tim1 = 0, tim2 = 0, tim3 = 0;
@@ -127,4 +141,7 @@ static bool irAused = 0, irBused = 0;
 static bool itA = 0, itB = 0;
 
 static char Http_xHeader[] = "HTTP/1.1 200 OK \nContent-Type: application/json \nAccess-Control-Allow-Origin: * \nServer: Custom PICO \n";
+
+
+
 #endif

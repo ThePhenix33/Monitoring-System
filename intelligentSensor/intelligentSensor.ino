@@ -26,7 +26,8 @@ struct Command cmdA,cmdB,cmdC,cmdD,cmdE,cmdF;
 void setup() {
   LittleFS.begin();
   pinMode(15, OUTPUT);
-
+  pinMode(3, OUTPUT);
+  digitalWrite(3,HIGH);
  
   //Check for previous configuration
   network.networkSetup();
@@ -35,32 +36,32 @@ void setup() {
   
   behavior.checkPreviousConfiguration(&cmdA,&cmdB,&cmdC,&cmdD,&cmdE,&cmdF);
   
-if(cmdA.mode!=-1) {
+if(cmdA.mode>0) {
   Serial.println(cmdA.mode);
   behavior.behaviorHandler(cmdA, network.userQuery, network.client);
 }
 delay(30);
-if(cmdB.mode!=-1) {
+if(cmdB.mode>0) {
   Serial.println(cmdB.mode);
   behavior.behaviorHandler(cmdB, network.userQuery, network.client);
 }
 delay(30);
-if(cmdC.mode!=-1) {
+if(cmdC.mode>0) {
   Serial.println(cmdC.mode);
   behavior.behaviorHandler(cmdC, network.userQuery, network.client);
 }
 delay(30);
-if(cmdD.mode!=-1) {
+if(cmdD.mode>0) {
   Serial.println(cmdD.mode);
   behavior.behaviorHandler(cmdD, network.userQuery, network.client);
 }
 delay(30);
-if(cmdE.mode!=-1) {
+if(cmdE.mode>0) {
   Serial.println(cmdE.mode);
   behavior.behaviorHandler(cmdE, network.userQuery, network.client);
 }
 delay(30);
-if(cmdF.mode!=-1) {
+if(cmdF.mode>0) {
   Serial.println(cmdF.mode);
   behavior.behaviorHandler(cmdF, network.userQuery, network.client);
 }

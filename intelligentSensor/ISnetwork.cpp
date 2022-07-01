@@ -69,12 +69,17 @@ void ISnetwork::networkSetup() {
 
 
   Serial.println("Trying to get an IP address using DHCP");
+
   if (Ethernet.begin(mac) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
 
     while (networkCheck() < 0) {
+      Serial.println("Attempting to connect to network");
       delay(1);
     }
+
+  } else {
+
   }
   delay(1000);
 
@@ -169,11 +174,11 @@ struct Command ISnetwork::queryAK() {
             Serial.println("   \\PERIOD value set");
           }
           if (((String)qParam).equals("m")) {
-            requestedCommand.min = ((String)qValue).toInt();
+            requestedCommand.min = ((String)qValue).toFloat();
             Serial.println("   \\MIN value set");
           }
           if (((String)qParam).equals("MM")) {
-            requestedCommand.max = ((String)qValue).toInt();
+            requestedCommand.max = ((String)qValue).toFloat();
             Serial.println("   \\MAX value set");
           }
           if (((String)qParam).equals("N")) {

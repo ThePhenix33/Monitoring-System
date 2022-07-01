@@ -27,14 +27,6 @@ fsActiveBehaviorsList fsActiveBehaviors;
 
 DynamicJsonDocument fsBehavior(1024);
 
-/*
-  void configurationSave(){
-
-  File conf=LittleFS.open("configuration.txt","w")
-  if(conf){
-
-  }
-  }*/
 
 
 void behavior::sensorScan() {
@@ -82,10 +74,13 @@ void behavior::sensorScan() {
 
 
 void behavior::sensorSetup() {
+  tempSens = 0;
+  humSens = 0;
   Wire.begin();
   sensorScan();
   for (int i  = 0; i <= nbDevices; i++) {
     Serial.println(nbDevices);
+
     switch (connectedSensors[i]) {
 
       case 0x45: //SHT35
@@ -93,6 +88,8 @@ void behavior::sensorSetup() {
         sht.begin(SHT35_ADDRESS);
         Wire.setClock(100000);
         sht.requestData();
+        tempSens = 1;
+        humSens = 1;
         break;
 
     }
@@ -304,57 +301,61 @@ void behavior::measure() {
 
 
 
-  if (activeBehaviors[timer].mode == 2 || activeBehaviors[timer].mode == 3) {
+  if (isAnAlertMode(activeBehaviors[timer].mode)) {
 
-    if (data < activeBehaviors[timer].min ) {
-      if (!activeBehaviors[timer].flagMin) {
+    /* if (data < activeBehaviors[timer].min ) {
 
-        Serial.print("   |Sensor ");
-        Serial.print(activeBehaviors[timer].id);
-        Serial.println(" has MINIMUM threshold reached");
-        activeBehaviors[timer].flagMin = 1;
+       if (!activeBehaviors[timer].flagMin) {
 
-        //SEND ALERT
-        /* String Sensor_id = (String)activeBehaviors[timer].id;
-      //SEND ALERT
+         Serial.print("   |Sensor ");
+         Serial.print(activeBehaviors[timer].id);
+         Serial.println(" has MINIMUM threshold reached");
+         activeBehaviors[timer].flagMin = 1;
+
+
+       }
+      } else if ( data > activeBehaviors[timer].max) {
+       if (!activeBehaviors[timer].flagMax) {
+         Serial.print("   |Sensor ");
+         Serial.print(activeBehaviors[timer].id);
+         Serial.println(" has MAXIMUM threshold reached");
+
+         activeBehaviors[timer].flagMax = 1;
+       }
+
+      }*/
+
+
+    //SEND ALERT
+
+    String Sensor_id = (String)activeBehaviors[timer].id;
+    //SEND ALERT
+    Serial.println(knownIP[0]);
+    String Type = "GET";
+    String Http_Level = "HTTP/1.1";
+    //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
+    String URL_Body_sh = "/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID=" + Sensor_id + "&data=" + data + "&thresholdMax" = (data > activeBehaviors[timer].max) ;
+    String FullReqURL = Type + " " + URL_Body_sh + " " + Http_Level;
+    if (activeQuery.connect(knownIP[0], 80)) {
+      //             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
+      activeQuery.println(FullReqURL);
+      //             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
+      //             activeQuery.println("Host: perdu.com");
+      activeQuery.print("Host: ");
+      activeQuery.println(knownIP[0]);
+      activeQuery.println("Connection: close");
+      activeQuery.println();
+      delay(1000);
+      activeQuery.stop();
+      Serial.println(" Query sended !?");
+      Serial.print("Host: ");
       Serial.println(knownIP[0]);
-      String Type="GET";
-      String Http_Level="HTTP/1.1";
-      //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
-      String URL_Body_sh="/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID="+Sensor_id+"&data="+data;
-      String FullReqURL=Type+" "+URL_Body_sh+" "+Http_Level;
-        if (activeQuery.connect(knownIP[0], 80)) {    
-//             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
-            activeQuery.println(FullReqURL);
-//             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
-//             activeQuery.println("Host: perdu.com");
-             activeQuery.print("Host: ");
-            activeQuery.println(knownIP[0]);
-            activeQuery.println("Connection: close");
-            activeQuery.println();
-                              delay(1000);
-            activeQuery.stop();
-            Serial.println(" Query sended !?");
-            Serial.print("Host: ");
-            Serial.println(knownIP[0]);
-            }*/
-        /////////////////////////
-      }
-    } else if ( data > activeBehaviors[timer].max) {
-      if (!activeBehaviors[timer].flagMax) {
-        Serial.print("   |Sensor ");
-        Serial.print(activeBehaviors[timer].id);
-        Serial.println(" has MAXIMUM threshold reached");
+    }
 
-        activeBehaviors[timer].flagMax = 1;
-      }
-
-    } 
-
+    /////////////////////////
 
   }
-
-  if (activeBehaviors[timer].mode != 3)
+  if (dataStorageNeeded(activeBehaviors[timer].mode))
   {
 
 
@@ -394,8 +395,14 @@ void behavior::measure() {
 
 */
 void behavior::ISinfo() {
+
   Serial.println("INTELLIGENT SENSOR INFO");
+
+  sensorSetup();
+
   DynamicJsonDocument doc(1024);
+
+  doc["version"] = versionID;
 
   for (int i = 0; i < nbDevices; i++) {
     doc["sensors"][i] = connectedSensors[i];
@@ -485,7 +492,9 @@ void behavior::regularMeasure() {
 
     doc["error"] = "reading period is not specified";
     JSONResponse(doc);
-  } else if (activeCommand.readingPeriod * 1000 >= 1e6 && activeCommand.readingPeriod * 1000 <= 3600e6) {
+
+
+  } else if (readingPeriodInRange(1e6, 3600e6)) {
 
     Serial.print("Timer initialisation ");
 
@@ -496,12 +505,14 @@ void behavior::regularMeasure() {
       doc["error"] = "sensor id is not specified";
       JSONResponse(doc);
 
-    } else  if (indexes[0] > 0 && indexes[1] > 0 && indexes[2] > 0 && indexes[3] > 0) {
+    } else  if (allDatabankFull()) {
       DynamicJsonDocument doc(1024);
 
       doc["error"] = "no databank available";
       JSONResponse(doc);
-    } else if ((activeCommand.mode == 2 && activeCommand.min == -1 && activeCommand.max == -1) || (activeCommand.mode == 3 && activeCommand.min == -1 && activeCommand.max == -1)) {
+
+
+    } else if (noThreshold()) {
       DynamicJsonDocument doc(1024);
 
       doc["error"] = "no threshold specified";
@@ -512,9 +523,7 @@ void behavior::regularMeasure() {
 
 
 
-      if (activeCommand.id > 2 ||
-          ((activeCommand.id == 1 && millis() - shtCooldown > 20 && sht.dataReady()) ||
-           (activeCommand.id == 2 && millis() - shtCooldown > 20 && sht.dataReady()))) {
+      if (sensorCooldownWaited) {
 
         for (int i = 0 ; i < activeBehaviors.size(); i++) {
           if (activeBehaviors[i].timerStart > 0) {
@@ -543,8 +552,12 @@ void behavior::regularMeasure() {
           Serial.print("in databank ");
           Serial.println(activeCommand.databank);
 
+          sensorSetup();
+
           if (!timer0Used) {
             if (ITimer0.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer0Handler)) {
+
+
 
               Serial.println("Timer Start OK");
               ITimer0.restartTimer();
@@ -564,16 +577,8 @@ void behavior::regularMeasure() {
               fsAB_A["max"] = activeCommand.max;
 
               fsActiveBehaviors.push_back(&fsAB_A);
-              ////configurationSave();
-              /*
-                File f = LittleFS.open("activeBehaviors.txt", "w");
-                if (f) {
+              configurationSave();
 
-                fsLittleBehavior["timer"] = "0";
-                Serial.println("ECRITURE");
-                serializeJson(fsLittleBehavior, f);
-                f.close();
-                }*/
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 1 started";
               JSONResponse(doc);
@@ -583,6 +588,7 @@ void behavior::regularMeasure() {
             }
           }
           else if (!timer1Used) {
+
             if (ITimer1.attachInterruptInterval(activeCommand.readingPeriod * 1000, behavior::timer1Handler)) {
               Serial.println("Timer Start OK");
               ITimer1.restartTimer();
@@ -591,26 +597,17 @@ void behavior::regularMeasure() {
               activeCommand.timer = 1;
               lastBehavior = activeCommand;
               activeBehaviors.push_back(activeCommand);
-              /*
-
-                            File f = LittleFS.open("activeBehaviors.txt", "w");
-                            if (f) {
-
-                              fsLittleBehavior["timer"] = "1";
-                              fsLittleBehavior["readingPeriod"]= readingPeriod;
-
-                              Serial.println("ECRITURE");
-                              serializeJson(fsLittleBehavior, f);
-                              f.close();
-                            }*/
 
               fsAB_B["mode"] = activeCommand.mode;
               fsAB_B["id"] = activeCommand.id;
               fsAB_B["timer"] = "1";
               fsAB_B["readingPeriod"] = activeCommand.readingPeriod;
+              fsAB_B["min"] = activeCommand.min;
+              fsAB_B["max"] = activeCommand.max;
 
               fsActiveBehaviors.push_back(&fsAB_B);
-              //configurationSave();
+
+              configurationSave();
 
 
               DynamicJsonDocument doc(1024);
@@ -635,19 +632,13 @@ void behavior::regularMeasure() {
               fsAB_C["id"] = activeCommand.id;
               fsAB_C["timer"] = "2";
               fsAB_C["readingPeriod"] = activeCommand.readingPeriod;
+              fsAB_C["min"] = activeCommand.min;
+              fsAB_C["max"] = activeCommand.max;
 
               fsActiveBehaviors.push_back(&fsAB_C);
-              //configurationSave();
+              configurationSave();
 
-              /*   File f = LittleFS.open("activeBehaviors.txt", "w");
-                 if (f) {
 
-                   fsLittleBehavior["timer"] = "3";
-                   Serial.println("ECRITURE");
-                   serializeJson(fsLittleBehavior, f);
-                   f.close();
-                 }
-              */
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 3 started";
               JSONResponse(doc);
@@ -672,18 +663,12 @@ void behavior::regularMeasure() {
               fsAB_D["id"] = activeCommand.id;
               fsAB_D["timer"] = "3";
               fsAB_D["readingPeriod"] = activeCommand.readingPeriod;
+              fsAB_D["min"] = activeCommand.min;
+              fsAB_D["max"] = activeCommand.max;
 
               fsActiveBehaviors.push_back(&fsAB_D);
-              //configurationSave();
-              /*
-                            File f = LittleFS.open("activeBehaviors.txt", "w");
-                            if (f) {
+              configurationSave();
 
-                              fsLittleBehavior["timer"] = "3";
-                              Serial.println("ECRITURE");
-                              serializeJson(fsLittleBehavior, f);
-                              f.close();
-                            }*/
               DynamicJsonDocument doc(1024);
               doc["status"] = "timer 4 started";
               JSONResponse(doc);
@@ -857,7 +842,7 @@ void behavior::detection() {
         fsAB_a["mode"] = activeCommand.mode;
         fsAB_a["id"] = activeCommand.id;
         fsActiveBehaviors.push_back(&fsAB_a);
-        //configurationSave();
+        configurationSave();
 
         DynamicJsonDocument doc(1024);
         doc["status"] = "interrupt A started";
@@ -885,7 +870,7 @@ void behavior::detection() {
         fsAB_b["mode"] = activeCommand.mode;
         fsAB_b["id"] = activeCommand.id;
         fsActiveBehaviors.push_back(&fsAB_b);
-        //configurationSave();
+        configurationSave();
 
 
         DynamicJsonDocument doc(1024);
@@ -945,7 +930,7 @@ void behavior::unitaryMeasure() {
           }
           else
           {
-            doc["data"][0] = sht.getRawTemperature() * (175.0 / 65535) - 45;
+            doc["data"] = sht.getRawTemperature() * (175.0 / 65535) - 45;
           }
         }
         Serial.println(" >Data sent!");
@@ -979,7 +964,7 @@ void behavior::unitaryMeasure() {
           }
           else
           {
-            doc["data"][0] = sht.getRawHumidity() * (100.0 / 65535);
+            doc["data"] = sht.getRawHumidity() * (100.0 / 65535);
           }
         }
 
@@ -1083,10 +1068,12 @@ void behavior::databankRead() {
 
 void behavior::measureReset() {
 
+  DynamicJsonDocument doc(1024);
+
   if (!(activeCommand.interrupt < 0)) {
 
     bool* timerXUsed;
-    int timInt;
+    int timInt = -1;
     RPI_PICO_Timer* ITimerX;
 
 
@@ -1110,9 +1097,9 @@ void behavior::measureReset() {
       fsActiveBehaviors.clear();
       activeBehaviors.clear();
       configurationSave();
-      
+
     } else {
- DynamicJsonDocument doc(1024);
+
       switch (activeCommand.interrupt) {
 
         case 1:
@@ -1120,10 +1107,6 @@ void behavior::measureReset() {
             ITimerX = &ITimer0;
             timInt = 0;
             timerXUsed = &timer0Used;
-
-           
-            doc["status"] = "timer 0 stopped";
-         
 
             break;
           }
@@ -1133,8 +1116,6 @@ void behavior::measureReset() {
             timInt = 1;
             timerXUsed = &timer1Used;
 
-           
-            doc["status"] = "timer 1 stopped";
 
 
             break;
@@ -1145,8 +1126,6 @@ void behavior::measureReset() {
             timInt = 2;
             timerXUsed = &timer2Used;
 
-            doc["status"] = "timer 2 stopped";
-   
             break;
           }
         case 4:
@@ -1155,9 +1134,9 @@ void behavior::measureReset() {
             timInt = 3;
             timerXUsed = &timer3Used;
 
-          
-            doc["status"] = "timer 3 stopped";
-        
+
+
+
             break;
           }
         case 5:
@@ -1167,9 +1146,13 @@ void behavior::measureReset() {
             for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
               if (activeBehaviors[cmd].mode == 4) {
                 if (activeBehaviors[cmd].id == PIN_A) {
+
+                  doc["status"] = "interrupt on pin A disabled";
+
+
                   activeBehaviors.remove(cmd);
                   fsActiveBehaviors.remove(cmd);
-                  //configurationSave();
+                  configurationSave();
                 }
               }
             }
@@ -1182,9 +1165,13 @@ void behavior::measureReset() {
             for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
               if (activeBehaviors[cmd].mode == 4) {
                 if (activeBehaviors[cmd].id == PIN_B) {
+
+                  doc["status"] = "interrupt on pin B disabled";
+
+
                   activeBehaviors.remove(cmd);
                   fsActiveBehaviors.remove(cmd);
-                  //configurationSave();
+                  configurationSave();
                 }
               }
             }
@@ -1194,17 +1181,21 @@ void behavior::measureReset() {
 
       for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
         if (activeBehaviors[cmd].timer == timInt) {
-          if (activeCommand.flagReset==1) {
+          if (activeCommand.flagReset == 1) {
             activeBehaviors[cmd].flagMax = 0;
             activeBehaviors[cmd].flagMin = 0;
-       
+
 
             doc["status"] = "flag reset";
-            JSONResponse(doc);
-            
+
+
           } else {
-          
-                JSONResponse(doc);
+
+            char text[256] = "";
+            sprintf(text, "timer %d stopped", timInt);
+            doc["status"] = text;
+
+
             ITimerX->stopTimer();
             *timerXUsed = false;
             activeBehaviors.remove(cmd);
@@ -1221,12 +1212,14 @@ void behavior::measureReset() {
     }
   }
   else {
-    DynamicJsonDocument doc(1024);
+
     int a = 2;
     doc["error" + String(a)] = "measure to stop is not specified";
-    JSONResponse(doc);
+
 
   }
+
+  JSONResponse(doc);
 }
 
 
@@ -1334,7 +1327,7 @@ void behavior::configurationSave() {
   LittleFS.remove("activeBehaviors.txt");
   File f = LittleFS.open("activeBehaviors.txt", "w");
   DynamicJsonDocument configurationToSave(8192);
-
+  configurationToSave["version"] = versionID;
   for (DynamicJsonDocument *fsAB : fsActiveBehaviors) {
     i++;
     configurationToSave["command" + String(i)] = *fsAB;
@@ -1426,4 +1419,29 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query, Eth
     JSONResponse(doc);
 
   }
+}
+
+
+bool behavior::isAnAlertMode(int mode) {
+  return mode == 2 || mode == 3;
+}
+
+
+bool behavior::dataStorageNeeded(int mode) {
+  return mode != 3;
+}
+
+bool behavior::readingPeriodInRange(long min, long max) {
+  return activeCommand.readingPeriod * 1000 >= min && activeCommand.readingPeriod * 1000 <= max;
+}
+
+bool behavior::allDatabankFull() {
+  return indexes[0] > 0 && indexes[1] > 0 && indexes[2] > 0 && indexes[3] > 0;
+}
+
+bool behavior::noThreshold() {
+  return (activeCommand.mode == 2 && activeCommand.min == -1 && activeCommand.max == -1) || (activeCommand.mode == 3 && activeCommand.min == -1 && activeCommand.max == -1);
+}
+bool behavior::sensorCooldownWaited() {
+  return activeCommand.id > 2 ||   ((activeCommand.id == 1 && millis() - shtCooldown > 20 && sht.dataReady()) ||    (activeCommand.id == 2 && millis() - shtCooldown > 20 && sht.dataReady()));
 }

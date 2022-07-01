@@ -21,8 +21,8 @@ struct Command{
 int mode=-1;
 int id=-1; 
 int readingPeriod=-1; 
-int min=-1;
-int max=-1; 
+float min=-1;
+float max=-1; 
 int logicalLevel=-1;
 int databank=-1; 
 int timer=-1;
