@@ -24,7 +24,7 @@
 #include <LittleFS.h>
 #include "Sensor.h"
 
-#define versionID "8"
+#define versionID "9"
 
 #define TIMER_INTERRUPT_DEBUG         1
 #define _TIMERINTERRUPT_LOGLEVEL_     4
@@ -99,6 +99,8 @@ class behavior  {
 
     static bool noThreshold();
     static bool sensorCooldownWaited();
+
+    static void sendAlert(int,float);
     //128716 (4 tableaux)
     //157516 (5 tableaux)
 };
@@ -112,7 +114,7 @@ static EthernetClient activeQuery;
 
 static bool tempSens = 0, humSens = 0;
 
-static IPAddress knownIP[10];
+static IPAddress knownIP(10, 118, 19, 227);
 
 static struct Command activeCommand, lastBehavior;
 static struct Measure databank[4][databankSize];

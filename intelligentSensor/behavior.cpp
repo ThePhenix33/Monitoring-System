@@ -303,54 +303,21 @@ void behavior::measure() {
 
   if (isAnAlertMode(activeBehaviors[timer].mode)) {
 
-    /* if (data < activeBehaviors[timer].min ) {
+    if (mes.data < activeBehaviors[timer].min ||mes.data > activeBehaviors[timer].max ) {
 
-       if (!activeBehaviors[timer].flagMin) {
+      if (!activeBehaviors[timer].flag) {
 
-         Serial.print("   |Sensor ");
-         Serial.print(activeBehaviors[timer].id);
-         Serial.println(" has MINIMUM threshold reached");
-         activeBehaviors[timer].flagMin = 1;
-
-
-       }
-      } else if ( data > activeBehaviors[timer].max) {
-       if (!activeBehaviors[timer].flagMax) {
-         Serial.print("   |Sensor ");
-         Serial.print(activeBehaviors[timer].id);
-         Serial.println(" has MAXIMUM threshold reached");
-
-         activeBehaviors[timer].flagMax = 1;
-       }
-
-      }*/
+        Serial.print("   |Sensor ");
+        Serial.print(activeBehaviors[timer].id);
+        Serial.println(" has MINIMUM threshold reached");
+        sendAlert(activeBehaviors[timer].id, mes.data);
+       
+        activeBehaviors[timer].flag = 1;
 
 
-    //SEND ALERT
+      }
+    } 
 
-    String Sensor_id = (String)activeBehaviors[timer].id;
-    //SEND ALERT
-    Serial.println(knownIP[0]);
-    String Type = "GET";
-    String Http_Level = "HTTP/1.1";
-    //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
-    String URL_Body_sh = "/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID=" + Sensor_id + "&data=" + data + "&thresholdMax" = (data > activeBehaviors[timer].max) ;
-    String FullReqURL = Type + " " + URL_Body_sh + " " + Http_Level;
-    if (activeQuery.connect(knownIP[0], 80)) {
-      //             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
-      activeQuery.println(FullReqURL);
-      //             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
-      //             activeQuery.println("Host: perdu.com");
-      activeQuery.print("Host: ");
-      activeQuery.println(knownIP[0]);
-      activeQuery.println("Connection: close");
-      activeQuery.println();
-      delay(1000);
-      activeQuery.stop();
-      Serial.println(" Query sended !?");
-      Serial.print("Host: ");
-      Serial.println(knownIP[0]);
-    }
 
     /////////////////////////
 
@@ -416,7 +383,7 @@ void behavior::ISinfo() {
     doc["activeBehaviors"][ab]["minimum"] = activeBehaviors[ab].min;
     doc["activeBehaviors"][ab]["databank"] = activeBehaviors[ab].databank;
     doc["activeBehaviors"][ab]["timer"] = activeBehaviors[ab].timer + 1;
-    doc["activeBehaviors"][ab]["flag"] = activeBehaviors[ab].flagMax || activeBehaviors[ab].flagMin;
+    doc["activeBehaviors"][ab]["flag"] = activeBehaviors[ab].flag;
   }
 
 
@@ -761,8 +728,8 @@ void behavior::detectionAction() {
     Serial.println("DETECTION");
 
     //SEND ALERT
-    if (activeQuery.connect(knownIP[0], 80)) {
-      Serial.println(knownIP[0]);
+    if (activeQuery.connect(knownIP, 80)) {
+      Serial.println(knownIP);
 
       // HTTP Request sent to the server
 
@@ -866,7 +833,6 @@ void behavior::detection() {
         lastBehavior = activeCommand;
 
         activeBehaviors.push_back(activeCommand);
-
         fsAB_b["mode"] = activeCommand.mode;
         fsAB_b["id"] = activeCommand.id;
         fsActiveBehaviors.push_back(&fsAB_b);
@@ -976,13 +942,64 @@ void behavior::unitaryMeasure() {
         Serial.println("End of query after JSON sending \n\n");
         break;
       }
-    case 5:
+    case 3:
       {
-        Serial.println(" >ADC measurement..");
+        Serial.println(" >PIN A measurement..");
 
         DynamicJsonDocument doc(1024);
         analogReadResolution(12);
-        doc["sensor"] = "ADC";
+        doc["sensor"] = "PIN_A";
+        doc["time"]   = millis();
+        doc["measure"] = "voltage";
+        doc["data"] = digitalRead(PIN_A);
+        Serial.println(" >Data sent!");
+        JSONResponse(doc);
+
+        activeQuery.stop();
+        Serial.println("End of query after JSON sending \n\n");
+        break;
+      }
+    case 4:
+      {
+        Serial.println(" >PIN B measurement..");
+
+        DynamicJsonDocument doc(1024);
+        analogReadResolution(12);
+        doc["sensor"] = "PIN_B";
+        doc["time"]   = millis();
+        doc["measure"] = "voltage";
+        doc["data"] = digitalRead(PIN_B);
+        Serial.println(" >Data sent!");
+        JSONResponse(doc);
+
+        activeQuery.stop();
+        Serial.println("End of query after JSON sending \n\n");
+        break;
+      }
+    case 5:
+      {
+        Serial.println(" >ADC0 measurement..");
+
+        DynamicJsonDocument doc(1024);
+        analogReadResolution(12);
+        doc["sensor"] = "ADC0";
+        doc["time"]   = millis();
+        doc["measure"] = "voltage";
+        doc["data"] = analogRead(26);
+        Serial.println(" >Data sent!");
+        JSONResponse(doc);
+
+        activeQuery.stop();
+        Serial.println("End of query after JSON sending \n\n");
+        break;
+      }
+    case 6:
+      {
+        Serial.println(" >ADC1 measurement..");
+
+        DynamicJsonDocument doc(1024);
+        analogReadResolution(12);
+        doc["sensor"] = "ADC1";
         doc["time"]   = millis();
         doc["measure"] = "voltage";
         doc["data"] = analogRead(27);
@@ -993,6 +1010,24 @@ void behavior::unitaryMeasure() {
         Serial.println("End of query after JSON sending \n\n");
         break;
       }
+    case 7:
+      {
+        Serial.println(" >ADC2 measurement..");
+
+        DynamicJsonDocument doc(1024);
+        analogReadResolution(12);
+        doc["sensor"] = "ADC2";
+        doc["time"]   = millis();
+        doc["measure"] = "voltage";
+        doc["data"] = analogRead(28);
+        Serial.println(" >Data sent!");
+        JSONResponse(doc);
+
+        activeQuery.stop();
+        Serial.println("End of query after JSON sending \n\n");
+        break;
+      }
+
   }
 }
 
@@ -1182,8 +1217,7 @@ void behavior::measureReset() {
       for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
         if (activeBehaviors[cmd].timer == timInt) {
           if (activeCommand.flagReset == 1) {
-            activeBehaviors[cmd].flagMax = 0;
-            activeBehaviors[cmd].flagMin = 0;
+            activeBehaviors[cmd].flag=0;
 
 
             doc["status"] = "flag reset";
@@ -1200,8 +1234,7 @@ void behavior::measureReset() {
             *timerXUsed = false;
             activeBehaviors.remove(cmd);
             fsActiveBehaviors.remove(cmd);
-            activeBehaviors[cmd].flagMax = 0;
-            activeBehaviors[cmd].flagMin = 0;
+            activeBehaviors[cmd].flag=0;
             configurationSave();
           }
         }
@@ -1352,9 +1385,6 @@ void behavior::behaviorHandler(struct Command command, EthernetClient query, Eth
 
   IPAddress nullIP(0, 0, 0, 0);
 
-  if (activeQuery.remoteIP() != nullIP) {
-    knownIP[0] = activeQuery.remoteIP();
-  }
 
   if (!(activeCommand.mode < 0)) {
     switch (activeCommand.mode) {
@@ -1444,4 +1474,35 @@ bool behavior::noThreshold() {
 }
 bool behavior::sensorCooldownWaited() {
   return activeCommand.id > 2 ||   ((activeCommand.id == 1 && millis() - shtCooldown > 20 && sht.dataReady()) ||    (activeCommand.id == 2 && millis() - shtCooldown > 20 && sht.dataReady()));
+}
+
+void behavior::sendAlert(int sensorID, float data ) {
+  //SEND ALERT
+ 
+
+    String Sensor_id = (String)sensorID;
+    //SEND ALERT
+    Serial.println(knownIP);
+    String Type = "GET";
+    String Http_Level = "HTTP/1.1";
+    //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
+    String URL_Body_sh = "/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID=" + Sensor_id + "&data=" + data ;
+    String FullReqURL = Type + " " + URL_Body_sh + " " + Http_Level;
+    
+    if (activeQuery.connect(knownIP, 80)) {
+      //             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
+      activeQuery.println(FullReqURL);
+      //             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
+      //             activeQuery.println("Host: perdu.com");
+      activeQuery.print("Host: ");
+      activeQuery.println(knownIP);
+      activeQuery.println("Connection: close");
+      activeQuery.println();
+      delay(1000);
+      activeQuery.stop();
+      Serial.println(" Query sent !?");
+      Serial.print("Host: ");
+      Serial.println(knownIP);
+    }
+  
 }
