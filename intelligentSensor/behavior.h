@@ -24,7 +24,9 @@
 #include <LittleFS.h>
 #include "Sensor.h"
 
-#define versionID "9"
+#include <Adafruit_MAX31865.h>
+
+#define versionID "10"
 
 #define TIMER_INTERRUPT_DEBUG         1
 #define _TIMERINTERRUPT_LOGLEVEL_     4
@@ -39,6 +41,10 @@ typedef Array<struct Command, 6> activeBehaviorsList;
 typedef Array<DynamicJsonDocument*, 6> fsActiveBehaviorsList;
 typedef Array<struct Sensor, 6> sensorList;
 static const short databankSize = 3600;
+
+//RTD Sensor PT100
+#define RREF      430.0
+#define RNOMINAL  100.0
 
 class behavior  {
 
@@ -93,7 +99,7 @@ class behavior  {
 
     static bool dataStorageNeeded(int mode);
 
-    static bool readingPeriodInRange(long min, long max);
+    static bool readingPeriodInRange(long min, double max);
 
     static bool allDatabankFull();
 

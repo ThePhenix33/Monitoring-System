@@ -16,6 +16,7 @@
 
 #define SHT35_ADDRESS   0x45
 SHT31 sht;
+Adafruit_MAX31865 thermo = Adafruit_MAX31865(9, 8, 7, 6); // CS, DI, DO, CLK
 
 
 
@@ -74,6 +75,9 @@ void behavior::sensorScan() {
 
 
 void behavior::sensorSetup() {
+
+  thermo.begin(MAX31865_4WIRE);
+
   tempSens = 0;
   humSens = 0;
   Wire.begin();
@@ -198,42 +202,9 @@ void behavior::measure() {
           while (mes.data == -1) {
             Serial.println("   \\Temperature measurement..");
 
-            if (sht.dataReady())
-            {
-              bool success  = sht.readData();
-              sht.requestData();
-
-              if (success == false)
-              {
-                Serial.println("  \\Failed read");
-              }
-              else
-              {
-
-                data = sht.getRawTemperature() * (175.0 / 65535) - 45;
-
-                mes.data = data;
-                Serial.println(mes.data);
-                mes.time = millis() - dateRef;
-                Serial.println(activeBehaviors[timer].id);
-                break;
-              }
-
-            } else {
-              data = sht.getRawTemperature() * (175.0 / 65535) - 45;
-
-              mes.data = data;
-
-              mes.time = millis() - dateRef;
-              Serial.println("   \\Data failed");
-              DynamicJsonDocument doc(1024);
-
-              doc["error"] = "temperature data is not ready";
-              JSONResponse(doc);
-            }
-            shtCooldown == millis();
-            Serial.println(activeBehaviors[timer].id);
-            break;
+            sht.read();
+            mes.data = sht.getTemperature();
+            mes.time = millis() - dateRef;
           }
         } else {
           Serial.println("   \\Temperature sensor is not connected");
@@ -247,52 +218,84 @@ void behavior::measure() {
 
           while (mes.data == -1) {
             Serial.println("   \\Humidity measurement..");
-
-
-            if (sht.dataReady())
-            {
-              bool success  = sht.readData();
-              sht.requestData();
-
-              if (success == false)
-              {
-                Serial.println("   \\Failed read");
-              }
-              else
-              {
-                data = sht.getRawHumidity() * (100.0 / 65535);
-                mes.data = data;
-                mes.time = millis() - dateRef;
-
-
-              }
-            } else {
-
-              Serial.println("   \\Data failed");
-            }
-            delay(1);
-            shtCooldown == millis();
-            break;
+            sht.read();
+            mes.data = sht.getHumidity();
+            mes.time = millis() - dateRef;
           }
         }
         else {
           Serial.println("   \\Humidity sensor is not connected");
           break;
         }
+        break;
+      }
+    case 3:
+      {
+
+        Serial.println(" >PIN A measurement..");
+
+        mes.data = digitalRead(PIN_A);
+        mes.time = millis() - dateRef;
+        Serial.println(" >Data sent!");
 
 
-        Serial.println(activeBehaviors[timer].id);
+        break;
+      }
+    case 4:
+      {
+
+        Serial.println(" >PIN B measurement..");
+
+        mes.data = digitalRead(PIN_B);
+        mes.time = millis() - dateRef;
+        Serial.println(" >Data sent!");
+
+
         break;
       }
     case 5:
       {
 
-        Serial.println("   \\ADC measurement..");
+        Serial.println("   \\ADC0 measurement..");
+        analogReadResolution(12);
+        data = analogRead(26);
+        mes.data = data;
+        mes.time = millis() - dateRef;
+
+        delay(1);
+        break;
+      }
+    case 6:
+      {
+
+        Serial.println("   \\ADC1 measurement..");
+        analogReadResolution(12);
         data = analogRead(27);
         mes.data = data;
         mes.time = millis() - dateRef;
 
         delay(1);
+        break;
+      }
+    case 7:
+      {
+
+        Serial.println("   \\ADC2 measurement..");
+        analogReadResolution(12);
+        data = analogRead(28);
+        mes.data = data;
+        mes.time = millis() - dateRef;
+
+        delay(1);
+        break;
+      }
+    case 8:
+      {
+        Serial.println("   \\PT100 RTD Probe temperature measurement..");
+
+        mes.data = thermo.temperature(RNOMINAL, RREF);
+        mes.time = millis() - dateRef;
+
         break;
       }
   }
@@ -303,7 +306,7 @@ void behavior::measure() {
 
   if (isAnAlertMode(activeBehaviors[timer].mode)) {
 
-    if (mes.data < activeBehaviors[timer].min ||mes.data > activeBehaviors[timer].max ) {
+    if (mes.data < activeBehaviors[timer].min || mes.data > activeBehaviors[timer].max ) {
 
       if (!activeBehaviors[timer].flag) {
 
@@ -311,12 +314,12 @@ void behavior::measure() {
         Serial.print(activeBehaviors[timer].id);
         Serial.println(" has MINIMUM threshold reached");
         sendAlert(activeBehaviors[timer].id, mes.data);
-       
+
         activeBehaviors[timer].flag = 1;
 
 
       }
-    } 
+    }
 
 
     /////////////////////////
@@ -1027,7 +1030,22 @@ void behavior::unitaryMeasure() {
         Serial.println("End of query after JSON sending \n\n");
         break;
       }
+    case 8:
+      {
+        Serial.println(" >PT100 RTD Probe temperature measurement..");
 
+        DynamicJsonDocument doc(1024);
+        doc["sensor"] = "RTD¨_Probe PT100";
+        doc["time"]   = millis();
+        doc["measure"] = "temperature";
+        doc["data"] =  thermo.temperature(RNOMINAL, RREF);
+        Serial.println(" >Data sent!");
+        JSONResponse(doc);
+
+        activeQuery.stop();
+        Serial.println("End of query after JSON sending \n\n");
+        break;
+      }
   }
 }
 
@@ -1217,7 +1235,7 @@ void behavior::measureReset() {
       for (int cmd = 0; cmd < activeBehaviors.size(); cmd++) {
         if (activeBehaviors[cmd].timer == timInt) {
           if (activeCommand.flagReset == 1) {
-            activeBehaviors[cmd].flag=0;
+            activeBehaviors[cmd].flag = 0;
 
 
             doc["status"] = "flag reset";
@@ -1234,7 +1252,7 @@ void behavior::measureReset() {
             *timerXUsed = false;
             activeBehaviors.remove(cmd);
             fsActiveBehaviors.remove(cmd);
-            activeBehaviors[cmd].flag=0;
+            activeBehaviors[cmd].flag = 0;
             configurationSave();
           }
         }
@@ -1461,7 +1479,7 @@ bool behavior::dataStorageNeeded(int mode) {
   return mode != 3;
 }
 
-bool behavior::readingPeriodInRange(long min, long max) {
+bool behavior::readingPeriodInRange(long min, double max) {
   return activeCommand.readingPeriod * 1000 >= min && activeCommand.readingPeriod * 1000 <= max;
 }
 
@@ -1478,31 +1496,31 @@ bool behavior::sensorCooldownWaited() {
 
 void behavior::sendAlert(int sensorID, float data ) {
   //SEND ALERT
- 
 
-    String Sensor_id = (String)sensorID;
-    //SEND ALERT
+
+  String Sensor_id = (String)sensorID;
+  //SEND ALERT
+  Serial.println(knownIP);
+  String Type = "GET";
+  String Http_Level = "HTTP/1.1";
+  //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
+  String URL_Body_sh = "/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID=" + Sensor_id + "&data=" + data ;
+  String FullReqURL = Type + " " + URL_Body_sh + " " + Http_Level;
+
+  if (activeQuery.connect(knownIP, 80)) {
+    //             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
+    activeQuery.println(FullReqURL);
+    //             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
+    //             activeQuery.println("Host: perdu.com");
+    activeQuery.print("Host: ");
+    activeQuery.println(knownIP);
+    activeQuery.println("Connection: close");
+    activeQuery.println();
+    delay(1000);
+    activeQuery.stop();
+    Serial.println(" Query sent !?");
+    Serial.print("Host: ");
     Serial.println(knownIP);
-    String Type = "GET";
-    String Http_Level = "HTTP/1.1";
-    //http://10.118.19.227/cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856
-    String URL_Body_sh = "/cgi-bin/proj_labsysmon/ISensor_alertRequest.sh?ID=" + Sensor_id + "&data=" + data ;
-    String FullReqURL = Type + " " + URL_Body_sh + " " + Http_Level;
-    
-    if (activeQuery.connect(knownIP, 80)) {
-      //             activeQuery.println(Type+" "+URL_Body_sh+" "+Http_Level);
-      activeQuery.println(FullReqURL);
-      //             activeQuery.println("GET /cgi-bin/proj_labsysmon/send_ISensor_alert.sh?ID=Temperature&TEL=0663733856 HTTP/1.1");
-      //             activeQuery.println("Host: perdu.com");
-      activeQuery.print("Host: ");
-      activeQuery.println(knownIP);
-      activeQuery.println("Connection: close");
-      activeQuery.println();
-      delay(1000);
-      activeQuery.stop();
-      Serial.println(" Query sent !?");
-      Serial.print("Host: ");
-      Serial.println(knownIP);
-    }
-  
+  }
+
 }
